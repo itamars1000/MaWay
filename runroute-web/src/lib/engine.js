@@ -9,13 +9,37 @@ const BASE = import.meta.env.VITE_ENGINE_URL || 'http://localhost:8000';
 // (~sub-second to ~8 s); this only bites on a stuck/very slow build.
 const REQUEST_TIMEOUT_MS = 45000;
 
+// The engine runs on a small free instance (Render free tier) that occasionally
+// returns a transient failure under load — a fast 404 "no-server" while the
+// instance recycles, a 502/503/504 gateway blip, or a dropped connection during
+// a cold start. These are NOT real "no route" answers (the engine signals those
+// with a 422), so we transparently retry them a few times with a short backoff.
+const MAX_ATTEMPTS = 3;
+const RETRY_BASE_MS = 1500; // backoff: 1.5s, then 3s
+const RETRYABLE_STATUS = new Set([404, 502, 503, 504]);
+
 /** Error with a stable `code` so the UI can show a friendly Hebrew message. */
 export class EngineError extends Error {
-  constructor(code, message) {
+  constructor(code, message, { retryable = false } = {}) {
     super(message);
     this.name = 'EngineError';
-    this.code = code; // 'no-start' | 'offline' | 'http' | 'empty'
+    this.code = code; // 'no-start' | 'offline' | 'http' | 'empty' | ...
+    this.retryable = retryable; // transient infra failure → safe to retry
   }
+}
+
+/** Sleep that rejects with an AbortError if the signal fires first. */
+function delay(ms, signal) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(resolve, ms);
+    if (!signal) return;
+    const onAbort = () => {
+      clearTimeout(t);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    if (signal.aborted) onAbort();
+    else signal.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 /** Convert one GeoJSON Feature → the candidate shape the UI expects. */
@@ -68,7 +92,28 @@ export async function generateFromEngine({ start, distanceKm, via, end, signal }
     params.set('via_lat', String(via.lat));
     params.set('via_lng', String(via.lng));
   }
+  const url = `${BASE}/loop?${params}`;
 
+  // Retry transient infra failures (free-tier recycling / cold start) a few
+  // times with backoff. Real answers — success or a definitive 422 — return or
+  // throw immediately; an external abort (a newer request) stops at once.
+  let lastErr;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    try {
+      return await attemptLoop(url, signal);
+    } catch (err) {
+      if (err.name === 'AbortError') throw err; // superseded by a newer request
+      if (!(err instanceof EngineError) || !err.retryable) throw err; // definitive
+      lastErr = err;
+      if (attempt < MAX_ATTEMPTS - 1) await delay(RETRY_BASE_MS * (attempt + 1), signal);
+    }
+  }
+  throw lastErr; // exhausted retries on a transient failure
+}
+
+/** One attempt at GET /loop. Throws EngineError (with `retryable`) or AbortError. */
+async function attemptLoop(url, signal) {
   // Combine the caller's abort signal (used to supersede an older request) with
   // an internal timeout, so a stuck request fails cleanly instead of hanging.
   const ctrl = new AbortController();
@@ -85,11 +130,13 @@ export async function generateFromEngine({ start, distanceKm, via, end, signal }
 
   let res;
   try {
-    res = await fetch(`${BASE}/loop?${params}`, { signal: ctrl.signal });
+    res = await fetch(url, { signal: ctrl.signal });
   } catch (err) {
-    if (timedOut) throw new EngineError('timeout', 'Engine timed out');
-    if (err.name === 'AbortError') throw err; // superseded by a newer request
-    throw new EngineError('offline', 'Engine unreachable');
+    // An external abort wins; otherwise a timeout or dropped connection is
+    // treated as transient (a cold start often drops the first connection).
+    if (!timedOut && signal?.aborted) throw err; // AbortError → superseded
+    if (timedOut) throw new EngineError('timeout', 'Engine timed out', { retryable: true });
+    throw new EngineError('offline', 'Engine unreachable', { retryable: true });
   } finally {
     clearTimeout(timer);
     if (signal) signal.removeEventListener('abort', onExternalAbort);
@@ -111,7 +158,10 @@ export async function generateFromEngine({ start, distanceKm, via, end, signal }
       if (d.startsWith('end_uncovered')) throw new EngineError('end-uncovered', detail);
       if (d.startsWith('no_path')) throw new EngineError('no-path', detail);
     }
-    throw new EngineError('http', `Engine responded ${res.status}`);
+    // 404 "no-server", 502/503/504 gateway blips = transient infra → retry.
+    throw new EngineError('http', `Engine responded ${res.status}`, {
+      retryable: RETRYABLE_STATUS.has(res.status),
+    });
   }
 
   const collection = await res.json();
