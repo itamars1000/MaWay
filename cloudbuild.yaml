@@ -1,0 +1,44 @@
+# Cloud Build → Cloud Run pipeline for the route engine.
+# Used by the CLI path (Path B in CLOUDRUN.md):
+#   gcloud builds submit --config cloudbuild.yaml
+#
+# Builds route_engine/Dockerfile with the repo root as context, pushes to
+# Artifact Registry, then deploys to Cloud Run. Override any value with
+# --substitutions, e.g. --substitutions=_REGION=europe-west1
+substitutions:
+  _SERVICE: runroute-engine
+  _REGION: europe-west4
+  _REPO: runroute
+  _IMAGE: europe-west4-docker.pkg.dev/maway-498818/runroute/engine:latest
+
+steps:
+  # 1. Build (note: -f points at the Dockerfile, "." is the build context = repo root)
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-f', 'route_engine/Dockerfile', '-t', '${_IMAGE}', '.']
+  # 2. Push to Artifact Registry
+  - name: gcr.io/cloud-builders/docker
+    args: ['push', '${_IMAGE}']
+  # 3. Deploy to Cloud Run (2Gi/1CPU, scale-to-zero, faster cold start)
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_IMAGE}
+      - --region=${_REGION}
+      - --platform=managed
+      - --memory=2Gi
+      - --cpu=1
+      - --min-instances=0
+      - --max-instances=4
+      - --cpu-boost
+      - --allow-unauthenticated
+      # ALLOWED_ORIGINS locks CORS to the web app (see route_engine/api.py).
+      - --set-env-vars=ALLOWED_ORIGINS=https://ma-way.vercel.app
+
+images:
+  - ${_IMAGE}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
