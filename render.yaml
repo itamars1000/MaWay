@@ -9,16 +9,21 @@
 #
 # Notes:
 #   - runtime: docker → uses route_engine/Dockerfile (context = repo root).
-#   - The free plan sleeps after inactivity (cold start ~30-60s) and has 512MB
-#     RAM. The engine loads regions/*.pkl + numpy/pandas/osmnx into memory; if it
-#     OOMs or feels slow, bump `plan` to "starter" or "standard".
+#   - plan: free → $0. Tradeoffs of the free tier:
+#       * 512MB RAM. Measured footprint with both regions loaded is ~245MB, so
+#         it fits, with headroom for requests in covered cities (TLV/Be'er Sheva).
+#         On-demand tiles for FAR, uncovered areas can spike memory and may OOM —
+#         if that happens, precompute those cities (route_engine.warm) or upgrade.
+#       * Sleeps after ~15 min idle; the first request then cold-starts (~30-60s).
+#         The web client times out at 45s, so the very first hit after sleep may
+#         fail — just retry. Upgrade to "starter" later to keep it always-on.
 services:
   - type: web
     name: runroute-engine
     runtime: docker
     dockerfilePath: route_engine/Dockerfile
     dockerContext: .
-    plan: starter
+    plan: free
     region: frankfurt        # closest Render region to Israel
     healthCheckPath: /health
     autoDeploy: true
