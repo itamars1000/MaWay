@@ -1,0 +1,31 @@
+# Pinned to the exact versions used to BUILD regions/*.pkl. The serialized
+# graphs are sensitive to networkx/osmnx versions, so keep these in sync if you
+# ever rebuild regions (python -m route_engine.warm). All heavy geo deps ship
+# binary wheels (manylinux + Windows), so no system GDAL/GEOS is required.
+
+# --- core routing ---
+osmnx==2.1.0
+networkx==3.6.1
+numpy==2.4.6
+shapely==2.1.2
+# fast in-memory graph for the real-time router
+rustworkx==0.17.1
+
+# --- geo stack (transitive via osmnx; pinned for reproducible .pkl loading) ---
+geopandas==1.1.3
+pandas==3.0.3
+pyproj==3.7.2
+pyogrio==0.12.1
+
+# --- HTTP API (serves the engine to the web app) ---
+fastapi==0.136.3
+uvicorn==0.48.0
+pydantic==2.13.4
+starlette==1.2.1
+requests==2.34.2
+
+# --- optional, for `--plot` ---
+folium>=0.16
+
+# --- dev/test only ---
+pytest>=8.0

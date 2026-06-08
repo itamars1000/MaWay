@@ -1,0 +1,29 @@
+# Render blueprint for the route engine.
+#
+# How to deploy:
+#   1. Push this repo to GitHub (Render deploys from a connected repo).
+#   2. In Render: New → Blueprint → pick this repo. It reads this file.
+#   3. After the first deploy, set ALLOWED_ORIGINS (in the service's Environment
+#      tab) to your web app's URL, e.g. https://maway.vercel.app
+#   4. Verify:  https://<service>.onrender.com/health
+#
+# Notes:
+#   - runtime: docker → uses route_engine/Dockerfile (context = repo root).
+#   - The free plan sleeps after inactivity (cold start ~30-60s) and has 512MB
+#     RAM. The engine loads regions/*.pkl + numpy/pandas/osmnx into memory; if it
+#     OOMs or feels slow, bump `plan` to "starter" or "standard".
+services:
+  - type: web
+    name: runroute-engine
+    runtime: docker
+    dockerfilePath: route_engine/Dockerfile
+    dockerContext: .
+    plan: starter
+    region: frankfurt        # closest Render region to Israel
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Set this in the Render dashboard to your web origin(s), comma-separated.
+      # Left unset, the API allows all origins (fine for first smoke tests).
+      - key: ALLOWED_ORIGINS
+        sync: false

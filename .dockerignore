@@ -1,0 +1,27 @@
+# Build context is the repo root, but only route_engine/ goes into the image.
+# Keep the context lean so builds are fast and the image small.
+
+# Python noise
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+
+# The local virtualenv is huge and platform-specific — never ship it.
+route_engine/.venv/
+
+# Runtime-generated, not part of the image:
+#   _cache/   on-demand tiles (rebuilt at runtime on the ephemeral disk)
+#   feedback.jsonl  raw feedback log (learned_weights.json IS shipped)
+route_engine/regions/_cache/
+route_engine/feedback.jsonl
+
+# Other subprojects / artifacts not needed by the engine
+runroute-web/
+lib/
+test/
+cache/
+.claude/
+*.geojson
+README.md
+analysis_options.yaml
+pubspec.yaml

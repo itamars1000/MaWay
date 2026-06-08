@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+cache/
+regions/_cache/
+feedback.jsonl
+learned_weights.json
+*.geojson
+*.html
