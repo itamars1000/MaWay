@@ -23,8 +23,9 @@ Mirrors the Render/Vercel flow.
 3. **Connect** GitHub → authorize → pick repo **`itamars1000/MaWay`**, branch **`main`**.
 4. Build configuration:
    - **Build Type: Dockerfile**
-   - **Source location / Dockerfile path:** `route_engine/Dockerfile`
-   - (Build context stays the repo root — that's what the Dockerfile expects.)
+   - **Source location / Dockerfile path:** `Dockerfile`  ← at the repo root
+     (the Console uses the Dockerfile's directory as the build context, so it
+     must be at the root, where the Dockerfile expects `route_engine/...`).
 5. Service settings:
    - **Region:** `europe-west4`
    - **Authentication:** **Allow unauthenticated invocations** (it's a public API)

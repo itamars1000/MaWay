@@ -1,12 +1,12 @@
-# route_engine — container image for the FastAPI route engine.
+# Container image for the FastAPI route engine.
 #
-# Build context is the REPO ROOT (the folder containing route_engine/), because
-# the app is imported as `route_engine.api:app` and needs the package directory
-# on the path. On Render this is wired via render.yaml (dockerContext: ".",
-# dockerfilePath: "route_engine/Dockerfile").
+# Lives at the REPO ROOT so the build context is the repo root on every platform
+# (Render, Cloud Run's Console "Dockerfile" build, and local builds all use the
+# Dockerfile's directory as the context). The app is imported as
+# `route_engine.api:app`, so the package directory is copied in under that path.
 #
 # Local sanity build/run from the repo root:
-#   docker build -f route_engine/Dockerfile -t runroute-engine .
+#   docker build -t runroute-engine .
 #   docker run -p 8000:8000 runroute-engine
 #   curl http://localhost:8000/health
 #
@@ -37,6 +37,7 @@ RUN useradd --create-home --uid 10001 appuser \
     && chown -R appuser:appuser /app
 USER appuser
 
-# Render injects $PORT; default to 8000 for local runs. Shell form so $PORT expands.
+# Render/Cloud Run inject $PORT; default to 8000 for local runs. Shell form so
+# $PORT expands (Cloud Run uses 8080, Render 10000 — both handled).
 EXPOSE 8000
 CMD uvicorn route_engine.api:app --host 0.0.0.0 --port ${PORT:-8000}

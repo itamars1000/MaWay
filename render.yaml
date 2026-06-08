@@ -21,7 +21,7 @@ services:
   - type: web
     name: runroute-engine
     runtime: docker
-    dockerfilePath: route_engine/Dockerfile
+    dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: free
     region: frankfurt        # closest Render region to Israel

@@ -12,7 +12,7 @@ Browser / PWA ──HTTPS──► runroute-web (Vercel) ──HTTPS──► ro
 
 ## 1. Engine → Render (free)
 
-Config lives in [`render.yaml`](render.yaml) + [`route_engine/Dockerfile`](route_engine/Dockerfile).
+Config lives in [`render.yaml`](render.yaml) + [`Dockerfile`](Dockerfile) (repo root).
 
 1. [render.com](https://render.com) → sign in with GitHub.
 2. **New → Blueprint** → pick `itamars1000/MaWay`. Render reads `render.yaml`.

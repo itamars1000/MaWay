@@ -12,9 +12,9 @@ substitutions:
   _IMAGE: europe-west4-docker.pkg.dev/maway-498818/runroute/engine:latest
 
 steps:
-  # 1. Build (note: -f points at the Dockerfile, "." is the build context = repo root)
+  # 1. Build ("." is the build context = repo root; Dockerfile is at the root)
   - name: gcr.io/cloud-builders/docker
-    args: ['build', '-f', 'route_engine/Dockerfile', '-t', '${_IMAGE}', '.']
+    args: ['build', '-t', '${_IMAGE}', '.']
   # 2. Push to Artifact Registry
   - name: gcr.io/cloud-builders/docker
     args: ['push', '${_IMAGE}']
