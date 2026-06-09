@@ -954,44 +954,40 @@ body {
   background: #e2e7ea;
 }
 
-/* Modal */
-.auth-overlay {
+/* Full-screen login (shown on launch; skippable as guest) */
+.login-screen {
   position: fixed;
   inset: 0;
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: rgba(47, 58, 69, 0.45);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  padding: 28px;
+  padding-top: max(28px, env(safe-area-inset-top));
+  padding-bottom: max(28px, env(safe-area-inset-bottom));
+  background: linear-gradient(160deg, #ffffff 0%, var(--mint-soft) 100%);
 }
-.auth-card {
+.login-inner {
   width: 100%;
   max-width: 340px;
-  background: #fff;
-  border-radius: 22px;
-  padding: 28px 24px 22px;
   text-align: center;
-  box-shadow: 0 18px 50px rgba(47, 58, 69, 0.3);
 }
-.auth-logo {
-  height: 30px;
+.login-logo {
+  height: 40px;
   width: auto;
-  margin-bottom: 14px;
+  margin-bottom: 22px;
 }
-.auth-title {
-  margin: 0 0 6px;
-  font-size: 19px;
+.login-title {
+  margin: 0 0 8px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--ink);
 }
-.auth-sub {
-  margin: 0 0 20px;
-  font-size: 13.5px;
+.login-sub {
+  margin: 0 0 28px;
+  font-size: 14px;
   color: var(--muted);
-  line-height: 1.5;
+  line-height: 1.55;
 }
 .auth-google {
   display: flex;

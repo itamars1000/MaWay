@@ -1,17 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../state/AuthProvider.jsx';
 import { UserIcon } from './icons.jsx';
-import LoginModal from './LoginModal.jsx';
 
 /**
  * Compact header control for optional sign-in.
- *   - signed out → a person button that opens the login modal
+ *   - signed out → a person button that opens the full-screen login
  *   - signed in  → the Google avatar (or initial), tapping shows a sign-out menu
  * Renders nothing when auth isn't configured, so the app stays guest-only.
  */
 export default function AuthButton() {
-  const { user, authEnabled, signOut } = useAuth();
-  const [modalOpen, setModalOpen] = useState(false);
+  const { user, authEnabled, signOut, openLogin } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const wrapRef = useRef(null);
 
@@ -28,17 +26,14 @@ export default function AuthButton() {
 
   if (!user) {
     return (
-      <>
-        <button
-          type="button"
-          className="auth-pill glass-pill"
-          aria-label="התחבר"
-          onClick={() => setModalOpen(true)}
-        >
-          <UserIcon size={20} />
-        </button>
-        <LoginModal open={modalOpen} onClose={() => setModalOpen(false)} />
-      </>
+      <button
+        type="button"
+        className="auth-pill glass-pill"
+        aria-label="התחבר"
+        onClick={openLogin}
+      >
+        <UserIcon size={20} />
+      </button>
     );
   }
 

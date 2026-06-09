@@ -5,6 +5,7 @@ import { useGeolocation } from './hooks/useGeolocation.js';
 import MapView from './components/MapView.jsx';
 import FloatingHeader from './components/FloatingHeader.jsx';
 import BottomSheet, { SNAP } from './components/BottomSheet.jsx';
+import LoginScreen from './components/LoginScreen.jsx';
 
 /** Requests the user's location once on mount. */
 function GeolocationBootstrap() {
@@ -36,6 +37,7 @@ export default function App() {
           <FloatingHeader />
           <BottomSheet onFractionChange={setSheetFraction} />
         </div>
+        <LoginScreen />
       </AppStateProvider>
     </AuthProvider>
   );
