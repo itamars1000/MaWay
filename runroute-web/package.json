@@ -10,6 +10,7 @@
     "gen:icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.108.0",
     "@turf/helpers": "^7.3.5",
     "@turf/kinks": "^7.3.5",
     "leaflet": "^1.9.4",

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AppStateProvider } from './state/AppState.jsx';
+import { AuthProvider } from './state/AuthProvider.jsx';
 import { useGeolocation } from './hooks/useGeolocation.js';
 import MapView from './components/MapView.jsx';
 import FloatingHeader from './components/FloatingHeader.jsx';
@@ -27,13 +28,15 @@ export default function App() {
   const [sheetFraction, setSheetFraction] = useState(SNAP.anchor);
 
   return (
-    <AppStateProvider>
-      <GeolocationBootstrap />
-      <div className="app">
-        <MapView sheetFraction={sheetFraction} />
-        <FloatingHeader />
-        <BottomSheet onFractionChange={setSheetFraction} />
-      </div>
-    </AppStateProvider>
+    <AuthProvider>
+      <AppStateProvider>
+        <GeolocationBootstrap />
+        <div className="app">
+          <MapView sheetFraction={sheetFraction} />
+          <FloatingHeader />
+          <BottomSheet onFractionChange={setSheetFraction} />
+        </div>
+      </AppStateProvider>
+    </AuthProvider>
   );
 }

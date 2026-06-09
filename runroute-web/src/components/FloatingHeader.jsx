@@ -1,8 +1,10 @@
 import SegmentedTabs from './SegmentedTabs.jsx';
+import AuthButton from './AuthButton.jsx';
 
 /**
  * Transparent top bar overlapping the map, with frosted-glass pills.
- * Right (RTL start): the MaWay brand logo. Left: the segmented control.
+ * Right (RTL start): the MaWay brand logo. Left: the segmented control and the
+ * optional sign-in / account control.
  */
 export default function FloatingHeader() {
   return (
@@ -13,6 +15,7 @@ export default function FloatingHeader() {
       <div className="header-tabs glass-pill">
         <SegmentedTabs />
       </div>
+      <AuthButton />
     </header>
   );
 }

@@ -283,6 +283,50 @@ export function FlagIcon({ size = 20, className }) {
   );
 }
 
+/** Person glyph (sign-in / profile). */
+export function UserIcon({ size = 20, className }) {
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+  );
+}
+
+/** Multi-colour Google "G" mark (sign-in button). */
+export function GoogleIcon({ size = 18, className }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 48 48">
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.6 7l7.1 5.5c4.2-3.9 6.6-9.6 6.6-16z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.4 28.3c-.5-1.4-.8-2.9-.8-4.3s.3-3 .7-4.3l-7.8-6.1C.9 16.6 0 20.2 0 24s.9 7.4 2.6 10.4l7.8-6.1z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.1-5.5c-2 1.3-4.5 2.1-8.8 2.1-6.3 0-11.7-3.7-13.6-9.8l-7.8 6.1C6.5 42.6 14.6 48 24 48z"
+      />
+    </svg>
+  );
+}
+
 /** Turn / corner glyph (turns-per-km chip). */
 export function TurnIcon({ size = 18, className }) {
   return (
