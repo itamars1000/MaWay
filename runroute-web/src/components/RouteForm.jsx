@@ -321,9 +321,6 @@ export default function RouteForm() {
               GPX
             </button>
           </div>
-          {generatedRoute.durationMin > 0 && (
-            <p className="time-est">⏱ זמן משוער: ~{Math.round(generatedRoute.durationMin)} דק׳</p>
-          )}
           <p
             className={`turn-rate ${
               generatedRoute.meetsTurnTarget ? 'ok' : 'over'
@@ -333,11 +330,6 @@ export default function RouteForm() {
             {generatedRoute.turnsPerKm.toFixed(1)} פניות לק"מ
             {generatedRoute.meetsTurnTarget ? '' : ' (יעד ≤3)'}
           </p>
-          {generatedRoute.pleasantFrac > 0 && (
-            <p className="pleasant-rate">
-              🌳 {Math.round(generatedRoute.pleasantFrac * 100)}% רחובות שקטים/ירוקים
-            </p>
-          )}
           {generatedRoute.scenicFrac > 0 && (
             <p className="scenic-rate">
               🌊 {Math.round(generatedRoute.scenicFrac * 100)}% נוף (ים/נהר/פארק)
