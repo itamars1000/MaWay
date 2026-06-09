@@ -84,6 +84,9 @@ export function AppStateProvider({ children }) {
       else if (pickingMode === 'end') {
         setEndPoint({ lat, lng });
         setEndLocation('נקודה על המפה');
+      } else if (pickingMode === 'start') {
+        setStartPosition({ lat, lng });
+        setStartLocation('נקודה על המפה'); // a non-CURRENT label → uses this point
       }
       setPickingMode(null);
     };

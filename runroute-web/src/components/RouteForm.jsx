@@ -117,6 +117,16 @@ export default function RouteForm() {
             מיקום אינו זמין (נדרש חיבור מאובטח) — חפש כתובת ידנית.
           </span>
         )}
+        <button
+          type="button"
+          className={`via-pick ${pickingMode === 'start' ? 'armed' : ''}`}
+          style={{ marginTop: 8 }}
+          onClick={() => setPickingMode((m) => (m === 'start' ? null : 'start'))}
+        >
+          {pickingMode === 'start'
+            ? 'הקש על המפה לבחירת ההתחלה…'
+            : '📍 בחר התחלה על המפה'}
+        </button>
       </div>
 
       {/* end point (A→B mode): address search OR a tapped map point */}
