@@ -330,11 +330,6 @@ export default function RouteForm() {
             {generatedRoute.turnsPerKm.toFixed(1)} פניות לק"מ
             {generatedRoute.meetsTurnTarget ? '' : ' (יעד ≤3)'}
           </p>
-          {generatedRoute.scenicFrac > 0 && (
-            <p className="scenic-rate">
-              🌊 {Math.round(generatedRoute.scenicFrac * 100)}% נוף (ים/נהר/פארק)
-            </p>
-          )}
           <div className="feedback-row">
             {feedbackGiven ? (
               <span className="feedback-thanks">
