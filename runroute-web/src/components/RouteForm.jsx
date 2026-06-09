@@ -282,6 +282,20 @@ export default function RouteForm() {
             </p>
           )}
 
+          {routeCount > 1 && (
+            <button
+              className="next-route"
+              type="button"
+              onClick={() => {
+                setFeedbackGiven(null);
+                setJustSaved(false);
+                showNextRoute();
+              }}
+            >
+              מסלול הבא ›
+            </button>
+          )}
+
           {/* Save to device + export GPX */}
           <div className="result-actions">
             <button
@@ -307,20 +321,6 @@ export default function RouteForm() {
               GPX
             </button>
           </div>
-
-          {routeCount > 1 && (
-            <button
-              className="next-route"
-              type="button"
-              onClick={() => {
-                setFeedbackGiven(null);
-                setJustSaved(false);
-                showNextRoute();
-              }}
-            >
-              מסלול הבא ›
-            </button>
-          )}
           {generatedRoute.durationMin > 0 && (
             <p className="time-est">⏱ זמן משוער: ~{Math.round(generatedRoute.durationMin)} דק׳</p>
           )}
