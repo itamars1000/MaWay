@@ -26,19 +26,11 @@ from .dual_graph import build_dual_graph, _edge_latlng
 ox.settings.use_cache = True
 ox.settings.log_console = False
 
-# Highways we never route on: motorways/trunks (unsafe) and off-road ways
-# (dirt tracks / bridleways / steps) — these are the "through the fields" paths
-# that long loops would otherwise wander onto.
-_DROP_HIGHWAYS = {
-    "motorway", "motorway_link", "trunk", "trunk_link",
-    "track", "bridleway", "steps",
-}
-# Unpaved surfaces — drop these regardless of highway type, so a paved
-# promenade/footway stays but a dirt path through open ground is removed.
-_UNPAVED_SURFACES = {
-    "unpaved", "ground", "dirt", "earth", "grass", "sand", "gravel",
-    "fine_gravel", "compacted", "pebblestone", "mud", "woodchips", "rock",
-}
+# Highways we never route on (unsafe for running). Off-road dirt ways are NOT
+# dropped here — removing them broke connectivity and forced extra turns;
+# instead they're heavily penalised in the routing weight (see dual_graph), so
+# they're avoided but still available when they're the only sensible connector.
+_DROP_HIGHWAYS = {"motorway", "motorway_link", "trunk", "trunk_link"}
 
 
 def _highway_of(data) -> str:
@@ -48,19 +40,11 @@ def _highway_of(data) -> str:
     return hw or ""
 
 
-def _surface_of(data) -> str:
-    s = data.get("surface")
-    if isinstance(s, list):
-        return s[0] if s else ""
-    return s or ""
-
-
 def prune(G):
-    """Drop motorways/trunks + off-road/unpaved ways, then iteratively remove
-    dead-ends (degree-1) so the loop stays on real, paved streets."""
+    """Drop motorways/trunks, then iteratively remove dead-ends (degree-1)."""
     G.remove_edges_from(
         [(u, v, k) for u, v, k, d in G.edges(keys=True, data=True)
-         if _highway_of(d) in _DROP_HIGHWAYS or _surface_of(d) in _UNPAVED_SURFACES]
+         if _highway_of(d) in _DROP_HIGHWAYS]
     )
     while True:
         und = G.to_undirected()

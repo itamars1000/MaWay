@@ -58,17 +58,32 @@ _CLASS_FACTOR = {
     "trunk": 0.7, "trunk_link": 0.75,
     "residential": 1.0, "unclassified": 1.0, "living_street": 1.0,
     "road": 1.0,
-    "pedestrian": 1.1, "footway": 1.2, "path": 1.2, "cycleway": 1.0, "track": 1.3,
+    "pedestrian": 1.1, "footway": 1.2, "path": 1.2, "cycleway": 1.0,
     "service": 2.0,          # parking aisles / alleys — strongly avoid
     "corridor": 3.0,
+    "track": 5.0,            # dirt/field roads — avoid (the "through the fields" ways)
+    "bridleway": 5.0,        # horse/dirt trails — avoid
     "steps": 6.0,            # stairs — avoid for running
 }
 _DEFAULT_CLASS_FACTOR = 1.1
 
+# Unpaved surfaces multiply the per-meter cost so dirt/gravel ways are avoided
+# without removing them (which would break connectivity and force extra turns).
+_UNPAVED_SURFACES = {
+    "unpaved", "ground", "dirt", "earth", "grass", "sand", "gravel",
+    "fine_gravel", "compacted", "pebblestone", "mud", "woodchips", "rock",
+}
+_UNPAVED_FACTOR = 4.0
+
+
+def _surface_factor(surface) -> float:
+    s = surface[0] if isinstance(surface, list) else surface
+    return _UNPAVED_FACTOR if s in _UNPAVED_SURFACES else 1.0
+
 # Classes that are pleasant to run on (quiet / car-free). Used by the router's
 # scorer to prefer nicer routes among those that meet the turn cap.
 PLEASANT_CLASSES = {
-    "footway", "path", "pedestrian", "cycleway", "track",
+    "footway", "path", "pedestrian", "cycleway",
     "living_street", "residential",
 }
 # Busy roads — pleasant only as a last resort.
@@ -133,7 +148,11 @@ def build_dual_graph(G, alpha: float = 500.0, k: float = 3.0,
         coords = _edge_latlng(G, u, v, data)
         length = float(data.get("length") or _polyline_length(coords))
         green = (u, v, key) in green_keys
-        cost = length * class_factor(data.get("highway"))  # turn/road only
+        # Per-meter cost: road class × surface (paved vs dirt). Off-road/unpaved
+        # ways become expensive so the loop prefers paved streets.
+        cost = length * class_factor(data.get("highway")) * _surface_factor(
+            data.get("surface")
+        )
         info[(u, v, key)] = {
             "u": u,
             "v": v,

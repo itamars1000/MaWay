@@ -32,7 +32,7 @@ _LOCK = threading.Lock()
 
 # Bump when the tile build changes shape (e.g. scenic added, off-road dropped)
 # so stale cached tiles are rebuilt instead of served.
-_TILE_VERSION = "v3"
+_TILE_VERSION = "v4"
 
 
 def get_or_build(lat, lng, distance_m, span_m=None):
