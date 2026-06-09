@@ -321,6 +321,9 @@ export default function RouteForm() {
               מסלול הבא ›
             </button>
           )}
+          {generatedRoute.durationMin > 0 && (
+            <p className="time-est">⏱ זמן משוער: ~{Math.round(generatedRoute.durationMin)} דק׳</p>
+          )}
           <p
             className={`turn-rate ${
               generatedRoute.meetsTurnTarget ? 'ok' : 'over'

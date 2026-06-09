@@ -149,6 +149,11 @@ export function AppStateProvider({ children }) {
         return next;
       });
 
+    const clearAllSavedRoutes = () => {
+      persist([]);
+      setSavedRoutes([]);
+    };
+
     const renameSavedRoute = (id, name) =>
       setSavedRoutes((list) => {
         const next = renameRoute(list, id, name);
@@ -231,6 +236,7 @@ export function AppStateProvider({ children }) {
       setJustSaved,
       saveCurrentRoute,
       deleteSavedRoute,
+      clearAllSavedRoutes,
       renameSavedRoute,
       openSavedRoute,
     };

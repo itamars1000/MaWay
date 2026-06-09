@@ -3,6 +3,8 @@
 //
 // Configure the base URL via VITE_ENGINE_URL (defaults to localhost:8000).
 
+import { getPace } from './settings.js';
+
 const BASE = import.meta.env.VITE_ENGINE_URL || 'http://localhost:8000';
 
 // Safety net so the UI never hangs forever. The engine itself is time-budgeted
@@ -55,7 +57,7 @@ function featureToCandidate(feature) {
   return {
     coords,
     distanceKm: distance,
-    durationMin: distance * 6, // ~6 min/km running estimate
+    durationMin: distance * getPace(), // estimate from the user's pace setting
     turns: p.sharp_turns ?? 0,
     turnsPerKm,
     meetsTurnTarget: turnsPerKm <= 3,

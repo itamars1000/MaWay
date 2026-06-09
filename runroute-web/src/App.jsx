@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { AppStateProvider } from './state/AppState.jsx';
 import { AuthProvider } from './state/AuthProvider.jsx';
+import { SettingsProvider } from './state/SettingsProvider.jsx';
 import { useGeolocation } from './hooks/useGeolocation.js';
 import MapView from './components/MapView.jsx';
 import FloatingHeader from './components/FloatingHeader.jsx';
 import BottomSheet, { SNAP } from './components/BottomSheet.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
+import SettingsScreen from './components/SettingsScreen.jsx';
 
 /** Requests the user's location once on mount. */
 function GeolocationBootstrap() {
@@ -30,15 +32,18 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <AppStateProvider>
-        <GeolocationBootstrap />
-        <div className="app">
-          <MapView sheetFraction={sheetFraction} />
-          <FloatingHeader />
-          <BottomSheet onFractionChange={setSheetFraction} />
-        </div>
-        <LoginScreen />
-      </AppStateProvider>
+      <SettingsProvider>
+        <AppStateProvider>
+          <GeolocationBootstrap />
+          <div className="app">
+            <MapView sheetFraction={sheetFraction} />
+            <FloatingHeader />
+            <BottomSheet onFractionChange={setSheetFraction} />
+          </div>
+          <LoginScreen />
+          <SettingsScreen />
+        </AppStateProvider>
+      </SettingsProvider>
     </AuthProvider>
   );
 }
