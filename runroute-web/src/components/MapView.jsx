@@ -9,8 +9,10 @@ import {
 } from 'react-leaflet';
 import { TargetIcon } from './icons.jsx';
 import { useAppState } from '../state/AppState.jsx';
+import { useSettings } from '../state/SettingsProvider.jsx';
 import { useGeolocation } from '../hooks/useGeolocation.js';
 import { DEFAULT_CENTER } from '../lib/route.js';
+import { getStyle } from '../lib/mapStyles.js';
 
 const DEFAULT_LATLNG = [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng];
 
@@ -84,6 +86,8 @@ export default function MapView({ sheetFraction }) {
     pickingMode,
     placeMapPoint,
   } = useAppState();
+  const { mapStyle } = useSettings();
+  const tile = getStyle(mapStyle);
   const { request } = useGeolocation();
   const [recenterSignal, setRecenterSignal] = useState(0);
 
@@ -133,12 +137,13 @@ export default function MapView({ sheetFraction }) {
         zoomControl={false}
       >
         <ViaPicker active={Boolean(pickingMode)} onPick={placeMapPoint} />
-        {/* Bright, colourful CartoDB Voyager basemap (MaWay light theme). */}
+        {/* Basemap — the user's chosen style (key swaps the layer on change). */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          subdomains="abcd"
-          maxZoom={20}
+          key={tile.id}
+          attribution={tile.attribution}
+          url={tile.url}
+          subdomains={tile.subdomains || 'abc'}
+          maxZoom={tile.maxZoom}
           eventHandlers={{ load: () => setMapReady(true) }}
         />
         {/* Route polyline — only when a real route exists (no fake placeholder). */}

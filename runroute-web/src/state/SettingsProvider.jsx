@@ -5,6 +5,8 @@ import {
   DEFAULT_PACE,
   MIN_PACE,
   MAX_PACE,
+  getMapStyleId,
+  setMapStyleStored,
 } from '../lib/settings.js';
 
 /**
@@ -17,11 +19,17 @@ const SettingsContext = createContext(null);
 export function SettingsProvider({ children }) {
   const [open, setOpen] = useState(false);
   const [pace, setPaceState] = useState(getPace);
+  const [mapStyle, setMapStyleState] = useState(getMapStyleId);
 
   const setPace = (value) => {
     const clamped = Math.min(MAX_PACE, Math.max(MIN_PACE, value));
     setPaceState(clamped);
     setPaceStored(clamped);
+  };
+
+  const setMapStyle = (id) => {
+    setMapStyleState(id);
+    setMapStyleStored(id);
   };
 
   const value = {
@@ -31,6 +39,8 @@ export function SettingsProvider({ children }) {
     pace,
     setPace,
     paceBounds: { min: MIN_PACE, max: MAX_PACE, default: DEFAULT_PACE },
+    mapStyle,
+    setMapStyle,
   };
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }

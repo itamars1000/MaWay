@@ -2,6 +2,7 @@ import { useSettings } from '../state/SettingsProvider.jsx';
 import { useAuth } from '../state/AuthProvider.jsx';
 import { useAppState } from '../state/AppState.jsx';
 import { ChevronIcon, GoogleIcon } from './icons.jsx';
+import { MAP_STYLES } from '../lib/mapStyles.js';
 
 const APP_VERSION = '0.1.0';
 
@@ -11,7 +12,8 @@ const APP_VERSION = '0.1.0';
  * and about. Opened from the header gear; closed with the back chevron.
  */
 export default function SettingsScreen() {
-  const { open, closeSettings, pace, setPace, paceBounds } = useSettings();
+  const { open, closeSettings, pace, setPace, paceBounds, mapStyle, setMapStyle } =
+    useSettings();
   const { user, authEnabled, signInWithGoogle, signOut } = useAuth();
   const { savedRoutes, clearAllSavedRoutes } = useAppState();
   if (!open) return null;
@@ -111,6 +113,30 @@ export default function SettingsScreen() {
                   +
                 </button>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ---- Map ---- */}
+        <section className="settings-group">
+          <h2 className="settings-group-title">מפה</h2>
+          <div className="settings-card">
+            <div className="settings-row-label" style={{ marginBottom: 12 }}>
+              <span>סוג מפה</span>
+              <small>הסגנון שמוצג ברקע</small>
+            </div>
+            <div className="mapstyle-row">
+              {MAP_STYLES.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`mapstyle-chip ${mapStyle === s.id ? 'active' : ''}`}
+                  onClick={() => setMapStyle(s.id)}
+                >
+                  <span className={`mapstyle-swatch mapstyle-swatch--${s.id}`} />
+                  <span>{s.label}</span>
+                </button>
+              ))}
             </div>
           </div>
         </section>
