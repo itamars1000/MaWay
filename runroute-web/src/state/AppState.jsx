@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import {
   loadSaved,
   persist,
@@ -6,6 +6,16 @@ import {
   removeRoute,
   renameRoute,
 } from '../lib/savedRoutes.js';
+import {
+  fetchCloudRoutes,
+  upsertCloudRoute,
+  deleteCloudRoute,
+  clearCloudRoutes,
+} from '../lib/cloudRoutes.js';
+import { useAuth } from './AuthProvider.jsx';
+
+// Cloud sync is best-effort: log and move on (localStorage already updated).
+const cloudWarn = (err) => console.warn('route sync skipped:', err?.message || err);
 
 // Top navigation tabs.
 export const TABS = { ROUTE: 'route', SAVED: 'saved' };
@@ -49,9 +59,44 @@ export function AppStateProvider({ children }) {
   const [routeStatus, setRouteStatus] = useState('idle'); // idle|loading|error
   const [routeError, setRouteError] = useState(null);
 
-  // Saved routes (device-only, localStorage) + a "just saved" flag for the UI.
+  // Saved routes: localStorage is the local source of truth; when signed in they
+  // also sync to Supabase (mirror) so they follow the user across devices.
   const [savedRoutes, setSavedRoutes] = useState(loadSaved);
   const [justSaved, setJustSaved] = useState(false);
+
+  // Who's signed in (null = guest). Drives cloud sync below.
+  const { user } = useAuth();
+
+  // On sign-in, merge local + cloud routes: upload any local-only ones, then
+  // show the union (newest first). Best-effort — failures keep local working.
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    (async () => {
+      try {
+        const cloud = await fetchCloudRoutes();
+        const local = loadSaved();
+        const cloudIds = new Set(cloud.map((r) => r.id));
+        const localOnly = local.filter((r) => !cloudIds.has(r.id));
+        await Promise.all(localOnly.map((r) => upsertCloudRoute(user.id, r)));
+        // Union by id (cloud data wins for shared ids), newest first.
+        const byId = new Map();
+        [...localOnly, ...cloud].forEach((r) => byId.set(r.id, r));
+        const merged = [...byId.values()].sort(
+          (a, b) => (b.createdAt || 0) - (a.createdAt || 0),
+        );
+        if (!active) return;
+        persist(merged);
+        setSavedRoutes(merged);
+      } catch (err) {
+        // Table missing / offline / RLS — keep using local silently.
+        console.warn('route sync skipped:', err?.message || err);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   const setSelectedDistance = (km) =>
     setDistanceRaw(Math.min(MAX_DISTANCE, Math.max(MIN_DISTANCE, km)));
@@ -140,24 +185,30 @@ export function AppStateProvider({ children }) {
         return next;
       });
       setJustSaved(true);
+      if (user) upsertCloudRoute(user.id, item).catch(cloudWarn);
     };
 
-    const deleteSavedRoute = (id) =>
+    const deleteSavedRoute = (id) => {
       setSavedRoutes((list) => {
         const next = removeRoute(list, id);
         persist(next);
         return next;
       });
+      if (user) deleteCloudRoute(id).catch(cloudWarn);
+    };
 
     const clearAllSavedRoutes = () => {
       persist([]);
       setSavedRoutes([]);
+      if (user) clearCloudRoutes(user.id).catch(cloudWarn);
     };
 
     const renameSavedRoute = (id, name) =>
       setSavedRoutes((list) => {
         const next = renameRoute(list, id, name);
         persist(next);
+        const renamed = next.find((r) => r.id === id);
+        if (user && renamed) upsertCloudRoute(user.id, renamed).catch(cloudWarn);
         return next;
       });
 
@@ -258,6 +309,7 @@ export function AppStateProvider({ children }) {
     routeError,
     savedRoutes,
     justSaved,
+    user,
   ]);
 
   return (
