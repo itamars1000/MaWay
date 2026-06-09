@@ -67,18 +67,34 @@ _CLASS_FACTOR = {
 }
 _DEFAULT_CLASS_FACTOR = 1.1
 
-# Unpaved surfaces multiply the per-meter cost so dirt/gravel ways are avoided
-# without removing them (which would break connectivity and force extra turns).
+# Off-road / unpaved ways ("שטח") multiply the per-meter cost so dirt/field
+# trails are avoided WITHOUT removing them (removal fragments the graph and
+# forces extra turns). A segment is "off-road" if its surface is unpaved, OR
+# it's a track/bridleway, OR it's a `path` that isn't explicitly paved (most
+# dirt trails are untagged `highway=path`). Paved promenades/footways stay cheap.
 _UNPAVED_SURFACES = {
     "unpaved", "ground", "dirt", "earth", "grass", "sand", "gravel",
     "fine_gravel", "compacted", "pebblestone", "mud", "woodchips", "rock",
 }
-_UNPAVED_FACTOR = 4.0
+_PAVED_SURFACES = {
+    "asphalt", "paved", "concrete", "concrete:plates", "concrete:lanes",
+    "paving_stones", "sett", "chipseal", "metal", "wood", "tartan",
+}
+_UNPAVED_FACTOR = 5.0
 
 
-def _surface_factor(surface) -> float:
+def is_offroad(highway, surface) -> bool:
+    """True if running this segment means going off paved streets (dirt/field)."""
+    hw = highway[0] if isinstance(highway, list) else highway
     s = surface[0] if isinstance(surface, list) else surface
-    return _UNPAVED_FACTOR if s in _UNPAVED_SURFACES else 1.0
+    if s in _UNPAVED_SURFACES:
+        return True
+    if hw in ("track", "bridleway"):
+        return True
+    # An untagged or non-paved `path` is almost always a dirt trail.
+    if hw == "path" and s not in _PAVED_SURFACES:
+        return True
+    return False
 
 # Classes that are pleasant to run on (quiet / car-free). Used by the router's
 # scorer to prefer nicer routes among those that meet the turn cap.
@@ -148,18 +164,21 @@ def build_dual_graph(G, alpha: float = 500.0, k: float = 3.0,
         coords = _edge_latlng(G, u, v, data)
         length = float(data.get("length") or _polyline_length(coords))
         green = (u, v, key) in green_keys
-        # Per-meter cost: road class × surface (paved vs dirt). Off-road/unpaved
-        # ways become expensive so the loop prefers paved streets.
-        cost = length * class_factor(data.get("highway")) * _surface_factor(
-            data.get("surface")
+        offroad = is_offroad(data.get("highway"), data.get("surface"))
+        # Per-meter cost: road class × off-road penalty. Dirt/field ways become
+        # expensive so the loop prefers paved streets (but stays available).
+        cost = length * class_factor(data.get("highway")) * (
+            _UNPAVED_FACTOR if offroad else 1.0
         )
         info[(u, v, key)] = {
             "u": u,
             "v": v,
             "coords": coords,
             "length": length,
-            # Class/green-weighted length used for routing cost.
+            # Class/off-road-weighted length used for routing cost.
             "cost_len": cost,
+            # Whether this segment is off-road/unpaved (dirt/field trail).
+            "offroad": offroad,
             # Whether this segment is pleasant to run (quiet / green).
             "pleasant": is_pleasant(data.get("highway"), green),
             # Whether this segment is scenic (near water / a park / the beach).

@@ -42,6 +42,10 @@ class Region:
         self.scenic = np.asarray(
             data.get("scenic", [False] * len(data["coords"])), dtype=bool
         )
+        # Off-road/unpaved (dirt/field) segments — default False for older pickles.
+        self.offroad = np.asarray(
+            data.get("offroad", [False] * len(data["coords"])), dtype=bool
+        )
         # Scenic "destination" anchors (lat,lng) the router aims candidates at.
         anchors = data.get("scenic_anchors") or []
         self.anchor_lat = np.asarray([a[0] for a in anchors], dtype=float)

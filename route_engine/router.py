@@ -55,7 +55,11 @@ DIST_BAND_HI = 1.6            # ≤ 160% of target
 SCORE_W_TURNS = 0.50
 SCORE_W_DIST = 0.38
 SCORE_W_PLEASANT = 0.12
+SCORE_W_OFFROAD = 0.6      # extra badness per unit off-road fraction (fixed)
 MAX_TURNS_PER_KM = 3.0     # hard quality cap returned to the client
+# Max fraction of a returned route that may run on unpaved/off-road ways. Routes
+# above this are rejected when a paved alternative exists (graceful fallback).
+OFFROAD_FRAC_CAP = 0.10
 
 
 class RouteError(RuntimeError):
@@ -125,6 +129,19 @@ def _stitch(region, path):
     return out
 
 
+def _add_quality_fracs(region, full, feat):
+    """Attach length-weighted pleasant / scenic / off-road fractions to a feature."""
+    seg_len = region.length
+    total = sum(seg_len[i] for i in full) or 1.0
+    feat["properties"]["pleasant_frac"] = round(
+        sum(seg_len[i] for i in full if region.pleasant[i]) / total, 3)
+    feat["properties"]["scenic_frac"] = round(
+        sum(seg_len[i] for i in full if region.scenic[i]) / total, 3)
+    feat["properties"]["offroad_frac"] = round(
+        sum(seg_len[i] for i in full if region.offroad[i]) / total, 3)
+    return feat
+
+
 # ---------------------------------------------------------------------------
 # One polygon loop (with iterative distance correction)
 # ---------------------------------------------------------------------------
@@ -191,15 +208,7 @@ def _run_polygon(region, start_primal, start_pt, target_m, phi0, n, beta,
             break
         full = full + closing[1:]
 
-        feat = feature_from_coords(_stitch(region, full))
-        # Fraction of the route length on pleasant (quiet/green) ways.
-        seg_len = region.length
-        total_len = sum(seg_len[i] for i in full) or 1.0
-        pleasant_len = sum(seg_len[i] for i in full if region.pleasant[i])
-        feat["properties"]["pleasant_frac"] = round(pleasant_len / total_len, 3)
-        # Fraction of the route length that is scenic (near water / a park).
-        scenic_len = sum(seg_len[i] for i in full if region.scenic[i])
-        feat["properties"]["scenic_frac"] = round(scenic_len / total_len, 3)
+        feat = _add_quality_fracs(region, full, feature_from_coords(_stitch(region, full)))
 
         actual = feat["properties"]["distance_m"]
         if actual >= target_m:
@@ -279,13 +288,7 @@ def _run_via_loop(region, start_primal, start_pt, target_m, via_pt, theta_deg,
             break
         full = leg1 + leg2[1:] + leg3[1:]
 
-        feat = feature_from_coords(_stitch(region, full))
-        seg_len = region.length
-        total_len = sum(seg_len[i] for i in full) or 1.0
-        feat["properties"]["pleasant_frac"] = round(
-            sum(seg_len[i] for i in full if region.pleasant[i]) / total_len, 3)
-        feat["properties"]["scenic_frac"] = round(
-            sum(seg_len[i] for i in full if region.scenic[i]) / total_len, 3)
+        feat = _add_quality_fracs(region, full, feature_from_coords(_stitch(region, full)))
         feat["properties"]["via_ok"] = True
 
         actual = feat["properties"]["distance_m"]
@@ -323,13 +326,7 @@ def _run_path(region, start_primal, start_pt, end_primal, end_pt, target_m,
         raise RouteError("no outgoing segments at start node")
 
     def _build(full, direct_only=False):
-        feat = feature_from_coords(_stitch(region, full))
-        seg_len = region.length
-        total_len = sum(seg_len[i] for i in full) or 1.0
-        feat["properties"]["pleasant_frac"] = round(
-            sum(seg_len[i] for i in full if region.pleasant[i]) / total_len, 3)
-        feat["properties"]["scenic_frac"] = round(
-            sum(seg_len[i] for i in full if region.scenic[i]) / total_len, 3)
+        feat = _add_quality_fracs(region, full, feature_from_coords(_stitch(region, full)))
         if direct_only:
             feat["properties"]["direct_only"] = True
         return feat
@@ -429,6 +426,8 @@ def _score(feature, target_m):
         + w["dist"] * f["dist"]
         + w["pleasant"] * f["pleasant"]
         + w.get("scenic", 0.0) * f["scenic"]
+        # Fixed (not learned) so among qualifying routes the least off-road wins.
+        + SCORE_W_OFFROAD * feature["properties"].get("offroad_frac", 0.0)
     )
 
 
@@ -575,11 +574,19 @@ def find_loop_candidates(region, lat, lng, target_m, n=None,
              if target_m <= f["properties"]["distance_m"] <= hi]
 
     if meets:
-        # Among routes that are long enough, prefer those at/under the turn cap;
-        # if none qualify (maze city), return the best-scored long-enough ones.
-        good = [f for f in meets
-                if f["properties"]["sharp_turns_per_km"] <= MAX_TURNS_PER_KM]
-        return good if good else meets[:3]
+        # Among long-enough routes, prefer those at/under the turn cap AND mostly
+        # on paved streets. Relax the off-road cap first, then the turn cap, so we
+        # always return the best available rather than failing (maze/edge starts).
+        on_road = [
+            f for f in meets
+            if f["properties"]["sharp_turns_per_km"] <= MAX_TURNS_PER_KM
+            and f["properties"].get("offroad_frac", 0.0) <= OFFROAD_FRAC_CAP
+        ]
+        if on_road:
+            return on_road
+        low_turn = [f for f in meets
+                    if f["properties"]["sharp_turns_per_km"] <= MAX_TURNS_PER_KM]
+        return low_turn if low_turn else meets[:3]
 
     # No route here reaches the requested length → return the LONGEST available
     # (closest from below), flagged so the UI says it's shorter than requested.

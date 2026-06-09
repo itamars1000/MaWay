@@ -227,6 +227,7 @@ def serialize(G, DG, info, place):
     length = [0.0] * n
     pleasant = [False] * n
     scenic = [False] * n
+    offroad = [False] * n
     v_primal = [None] * n
     node_useg = [None] * n
     coords = [None] * n
@@ -239,6 +240,7 @@ def serialize(G, DG, info, place):
         length[i] = m["length"]
         pleasant[i] = bool(m["pleasant"])
         scenic[i] = bool(m.get("scenic", False))
+        offroad[i] = bool(m.get("offroad", False))
         v_primal[i] = m["v"]
         node_useg[i] = list(_undirected_seg(nid))  # JSON/pickle-friendly
         coords[i] = m["coords"]
@@ -263,6 +265,7 @@ def serialize(G, DG, info, place):
         "bbox": bbox,
         "end_lat": end_lat, "end_lng": end_lng, "end_heading": end_heading,
         "length": length, "pleasant": pleasant, "scenic": scenic,
+        "offroad": offroad,
         "scenic_anchors": scenic_anchors,
         "v_primal": v_primal, "node_useg": node_useg, "coords": coords,
         "edges": edges,
