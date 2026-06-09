@@ -12,8 +12,7 @@ const APP_VERSION = '0.1.0';
  * and about. Opened from the header gear; closed with the back chevron.
  */
 export default function SettingsScreen() {
-  const { open, closeSettings, pace, setPace, paceBounds, mapStyle, setMapStyle } =
-    useSettings();
+  const { open, closeSettings, mapStyle, setMapStyle } = useSettings();
   const { user, authEnabled, signInWithGoogle, signOut } = useAuth();
   const { savedRoutes, clearAllSavedRoutes } = useAppState();
   if (!open) return null;
@@ -80,42 +79,6 @@ export default function SettingsScreen() {
             )}
           </section>
         )}
-
-        {/* ---- Preferences ---- */}
-        <section className="settings-group">
-          <h2 className="settings-group-title">העדפות</h2>
-          <div className="settings-card">
-            <div className="settings-row">
-              <div className="settings-row-label">
-                <span>קצב ריצה</span>
-                <small>משמש לחישוב הזמן המשוער של המסלול</small>
-              </div>
-              <div className="stepper">
-                <button
-                  type="button"
-                  className="stepper-btn"
-                  aria-label="הפחת קצב"
-                  onClick={() => setPace(pace - 0.5)}
-                  disabled={pace <= paceBounds.min}
-                >
-                  −
-                </button>
-                <span className="stepper-value">
-                  {pace.toFixed(1)}<small> דק׳/ק״מ</small>
-                </span>
-                <button
-                  type="button"
-                  className="stepper-btn"
-                  aria-label="הגבר קצב"
-                  onClick={() => setPace(pace + 0.5)}
-                  disabled={pace >= paceBounds.max}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
 
         {/* ---- Map ---- */}
         <section className="settings-group">
