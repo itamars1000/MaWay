@@ -106,6 +106,18 @@ PLEASANT_CLASSES = {
 BUSY_CLASSES = {"primary", "primary_link", "trunk", "trunk_link",
                 "secondary", "secondary_link"}
 
+# Cost (meters-equivalent) for cutting ACROSS a busy road at a junction —
+# i.e. neither the incoming nor outgoing segment runs along the busy road
+# itself. Kept well below a 90° turn (alpha=500) so avoiding a crossing never
+# justifies a turny detour; it just tips the balance between otherwise-similar
+# routes toward the one with fewer big-road crossings.
+CROSSING_PENALTY = 120.0
+
+
+def is_busy(highway) -> bool:
+    """True if this segment runs along a busy (primary/secondary/trunk) road."""
+    return _hw(highway) in BUSY_CLASSES
+
 
 def _hw(highway):
     return highway[0] if isinstance(highway, list) else highway
@@ -179,6 +191,8 @@ def build_dual_graph(G, alpha: float = 500.0, k: float = 3.0,
             "cost_len": cost,
             # Whether this segment is off-road/unpaved (dirt/field trail).
             "offroad": offroad,
+            # Whether this segment runs ALONG a busy road (used for crossings).
+            "busy": is_busy(data.get("highway")),
             # Whether this segment is pleasant to run (quiet / green).
             "pleasant": is_pleasant(data.get("highway"), green),
             # Whether this segment is scenic (near water / a park / the beach).
@@ -198,6 +212,14 @@ def build_dual_graph(G, alpha: float = 500.0, k: float = 3.0,
     for nid, meta in info.items():
         out_by_node[meta["u"]].append(nid)
 
+    # Junctions that touch a busy road: passing THROUGH one of these on
+    # non-busy segments means cutting across the big road (a "crossing").
+    busy_nodes = set()
+    for meta in info.values():
+        if meta["busy"]:
+            busy_nodes.add(meta["u"])
+            busy_nodes.add(meta["v"])
+
     for nid, meta in info.items():
         b = meta["v"]  # we arrive at intersection b along this segment
         for out_nid in out_by_node[b]:
@@ -207,7 +229,13 @@ def build_dual_graph(G, alpha: float = 500.0, k: float = 3.0,
                 continue
             delta = abs(wrap180(out["start_heading"] - meta["end_heading"]))
             weight = out["cost_len"] + turn_penalty(delta, alpha, k)
-            DG.add_edge(nid, out_nid, weight=weight, turn_deg=delta)
+            # Crossing a busy road: the junction touches one, but we neither
+            # arrive nor leave along it. Turning onto/off the road is free.
+            crossing = b in busy_nodes and not meta["busy"] and not out["busy"]
+            if crossing:
+                weight += CROSSING_PENALTY
+            DG.add_edge(nid, out_nid, weight=weight, turn_deg=delta,
+                        crossing=crossing)
 
     return DG, info
 

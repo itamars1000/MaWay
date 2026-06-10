@@ -40,7 +40,7 @@ N_WAYPOINTS = 4            # default single shape (square) for direct calls
 # heavily so hard cities get enough bearings to find a ≤3/km route.
 WAYPOINT_OPTIONS = [2, 2, 2, 3, 4]
 N_CANDIDATES = 18          # rotations tried; split across the shapes above.
-MAX_CORRECTION_PASSES = 4
+MAX_CORRECTION_PASSES = 5
 # Long loops have long, callback-heavy A* legs that the GIL serializes, so the
 # per-request work and wall-time are scaled down with distance and bounded by a
 # deadline (return best-so-far). Tuned so even a 21 km request comes back fast.
@@ -51,6 +51,10 @@ LANDMARK_MIN_M = 7000
 # A returned loop must be at least the requested length (hard floor in
 # find_loop_candidates). This is the upper sanity cap so it isn't wildly long.
 DIST_BAND_HI = 1.6            # ≤ 160% of target
+# A candidate is "accurate enough" to count toward the early-stop when it's
+# within this band; slightly looser than the per-pass 1.08 break so it's
+# reliably achievable on real street grids.
+DIST_QUALIFY_HI = 1.12
 # Among routes that meet the turn cap, prefer accurate distance, then pleasant.
 SCORE_W_TURNS = 0.50
 SCORE_W_DIST = 0.38
@@ -129,6 +133,27 @@ def _stitch(region, path):
     return out
 
 
+def _next_size(prev, val, actual, target_m):
+    """Next loop-size parameter (polygon radius / ellipse semi-major) aiming a
+    hair above target. From the 2nd pass on, use a secant step through the last
+    two (size, distance) points — street networks respond non-linearly to size,
+    so this converges much faster than the multiplicative update, which stays
+    as the fallback when the secant is degenerate or jumps absurdly.
+
+    `prev` is the previous (size, distance) pair or None."""
+    goal = 1.03 * target_m
+    mult = val * goal / max(actual, 1.0)
+    if prev is None:
+        return mult
+    pval, pactual = prev
+    if abs(actual - pactual) < 1.0:        # flat — secant undefined
+        return mult
+    sec = val + (goal - actual) * (pval - val) / (pactual - actual)
+    if not (0.3 * val <= sec <= 3.0 * val):  # absurd jump — don't trust it
+        return mult
+    return sec
+
+
 def _add_quality_fracs(region, full, feat):
     """Attach length-weighted pleasant / scenic / off-road fractions to a feature."""
     seg_len = region.length
@@ -162,6 +187,7 @@ def _run_polygon(region, start_primal, start_pt, target_m, phi0, n, beta,
     # (each correction pass is several long, expensive A* legs).
     best_over = None      # (feat, dist) smallest distance >= target
     best_under = None     # (feat, dist) largest distance < target
+    size_hist = None      # previous (radius, actual) for the secant step
     for _ in range(max_passes):
         waypoints = _polygon_waypoints(start_pt, radius, phi0, n)
         wp_idx = [region.nearest_node_to(wp) for wp in waypoints]
@@ -214,14 +240,15 @@ def _run_polygon(region, start_primal, start_pt, target_m, phi0, n, beta,
         if actual >= target_m:
             if best_over is None or actual < best_over[1]:
                 best_over = (feat, actual)
-            if actual <= 1.15 * target_m:
+            if actual <= 1.08 * target_m:
                 break  # close enough from above — stop shrinking the radius
         else:
             if best_under is None or actual > best_under[1]:
                 best_under = (feat, actual)
         # Aim slightly ABOVE target so the search converges from above, not below.
-        factor = (1.03 * target_m) / max(actual, 1.0)
-        radius *= factor  # rescale and try again
+        new_radius = _next_size(size_hist, radius, actual, target_m)
+        size_hist = (radius, actual)
+        radius = new_radius
 
     best = best_over[0] if best_over else (best_under[0] if best_under else None)
     if best is None:
@@ -258,6 +285,7 @@ def _run_via_loop(region, start_primal, start_pt, target_m, via_pt, theta_deg,
 
     best_over = None
     best_under = None
+    size_hist = None      # previous (s, actual) for the secant step
     for _ in range(max_passes):
         b_ax = math.sqrt(max(s * s - half * half, 0.0))   # ellipse semi-minor
         mid = destination(start_pt[0], start_pt[1], base, half)
@@ -295,13 +323,14 @@ def _run_via_loop(region, start_primal, start_pt, target_m, via_pt, theta_deg,
         if actual >= target_m:
             if best_over is None or actual < best_over[1]:
                 best_over = (feat, actual)
-            if actual <= 1.15 * target_m:
+            if actual <= 1.08 * target_m:
                 break
         else:
             if best_under is None or actual > best_under[1]:
                 best_under = (feat, actual)
-        factor = (1.03 * target_m) / max(actual, 1.0)
-        s = max(half + 1.0, s * factor)   # keep s > half so the ellipse is real
+        new_s = _next_size(size_hist, s, actual, target_m)
+        size_hist = (s, actual)
+        s = max(half + 1.0, new_s)   # keep s > half so the ellipse is real
 
     best = best_over[0] if best_over else (best_under[0] if best_under else None)
     if best is None:
@@ -349,6 +378,7 @@ def _run_path(region, start_primal, start_pt, end_primal, end_pt, target_m,
     s = target_m / 2.0       # semi-major
     best_over = None
     best_under = None
+    size_hist = None      # previous (s, actual) for the secant step
     for _ in range(max_passes):
         b_ax = math.sqrt(max(s * s - half * half, 0.0))
         mid = destination(start_pt[0], start_pt[1], base, half)
@@ -378,13 +408,14 @@ def _run_path(region, start_primal, start_pt, end_primal, end_pt, target_m,
         if actual >= target_m:
             if best_over is None or actual < best_over[1]:
                 best_over = (feat, actual)
-            if actual <= 1.15 * target_m:
+            if actual <= 1.08 * target_m:
                 break
         else:
             if best_under is None or actual > best_under[1]:
                 best_under = (feat, actual)
-        factor = (1.03 * target_m) / max(actual, 1.0)
-        s = max(half + 1.0, s * factor)
+        new_s = _next_size(size_hist, s, actual, target_m)
+        size_hist = (s, actual)
+        s = max(half + 1.0, new_s)
 
     best = best_over[0] if best_over else (best_under[0] if best_under else None)
     if best is None:
@@ -437,10 +468,10 @@ def _budget_for(target_m):
     deadline; short loops get the full search and a tight deadline."""
     km = target_m / 1000.0
     if km <= 8:
-        return N_CANDIDATES, MAX_CORRECTION_PASSES, 4.0
+        return N_CANDIDATES, MAX_CORRECTION_PASSES, 5.0
     if km <= 14:
-        return 12, 2, 6.0
-    return 8, 2, 8.0
+        return 14, 3, 8.0
+    return 10, 4, 10.0
 
 
 def find_loop_candidates(region, lat, lng, target_m, n=None,
@@ -518,9 +549,13 @@ def find_loop_candidates(region, lat, lng, target_m, n=None,
         n_landmark = len(landmark_specs)
 
     def _qualifies(f):
+        # "Good enough to stop searching": long enough, CLOSE to target (so the
+        # early-stop doesn't settle for a +20% overshoot when the time budget
+        # could find an accurate one), low-turn, and mostly paved.
         p = f["properties"]
-        return (p["distance_m"] >= target_m
-                and p["sharp_turns_per_km"] <= MAX_TURNS_PER_KM)
+        return (target_m <= p["distance_m"] <= DIST_QUALIFY_HI * target_m
+                and p["sharp_turns_per_km"] <= MAX_TURNS_PER_KM
+                and p.get("offroad_frac", 0.0) <= OFFROAD_FRAC_CAP)
 
     # Run the candidates in parallel but bound the wall time: collect whatever
     # finishes before the deadline (or once enough qualifying ones are in), and
@@ -583,7 +618,12 @@ def find_loop_candidates(region, lat, lng, target_m, n=None,
             and f["properties"].get("offroad_frac", 0.0) <= OFFROAD_FRAC_CAP
         ]
         if on_road:
-            return on_road
+            # Prefer ACCURATE routes: the score trades turns vs distance, so a
+            # low-turn +15% loop can outscore an on-target one. When accurate
+            # qualifying routes exist, return only those (still score-ordered).
+            close = [f for f in on_road
+                     if f["properties"]["distance_m"] <= DIST_QUALIFY_HI * target_m]
+            return close if close else on_road
         low_turn = [f for f in meets
                     if f["properties"]["sharp_turns_per_km"] <= MAX_TURNS_PER_KM]
         return low_turn if low_turn else meets[:3]
