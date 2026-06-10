@@ -25,6 +25,7 @@ from concurrent.futures import (
     as_completed,
 )
 
+import numpy as np
 import rustworkx as rx
 
 from . import learning
@@ -44,7 +45,10 @@ MAX_CORRECTION_PASSES = 5
 # Long loops have long, callback-heavy A* legs that the GIL serializes, so the
 # per-request work and wall-time are scaled down with distance and bounded by a
 # deadline (return best-so-far). Tuned so even a 21 km request comes back fast.
-EARLY_STOP_GOOD = 3        # stop once this many qualifying candidates are in
+# Don't stop at the first few qualifiers — keep collecting (within the time
+# budget) so "מסלול הבא" has genuinely different shapes to cycle through.
+EARLY_STOP_GOOD = 5        # stop once this many qualifying candidates are in
+MAX_RETURNED = 6           # cap on candidates returned to the client
 # Landmark-seeking (aim at distant scenery) only matters for longer loops; short
 # loops stay lean (no extra candidates) so their ≤3-turn search isn't crowded.
 LANDMARK_MIN_M = 7000
@@ -60,6 +64,7 @@ SCORE_W_TURNS = 0.50
 SCORE_W_DIST = 0.38
 SCORE_W_PLEASANT = 0.12
 SCORE_W_OFFROAD = 0.6      # extra badness per unit off-road fraction (fixed)
+SCORE_W_OVERLAP = 0.5      # extra badness per unit self-overlap (fixed)
 MAX_TURNS_PER_KM = 3.0     # hard quality cap returned to the client
 # Max fraction of a returned route that may run on unpaved/off-road ways. Routes
 # above this are rejected when a paved alternative exists (graceful fallback).
@@ -154,6 +159,69 @@ def _next_size(prev, val, actual, target_m):
     return sec
 
 
+# ---------------------------------------------------------------------------
+# Roundness / similarity — vectorized on resampled, locally-projected points
+# ---------------------------------------------------------------------------
+
+_OVERLAP_STEP_M = 25.0   # polyline resample spacing
+_OVERLAP_NEAR_M = 25.0   # "passes right next to itself / the other route"
+_OVERLAP_SKIP = 5        # ignore this many along-path neighbors (self only)
+_DEDUPE_FRAC = 0.75      # ≥ this much shared footprint → near-identical, drop
+
+
+def _projected_points(coords):
+    """Resample a (lat, lng) polyline to ~25 m spacing and project to local
+    meters (equirectangular — fine at city scale). Returns an (N, 2) array."""
+    pts = [coords[0]]
+    for p in coords[1:]:
+        if haversine(pts[-1], p) >= _OVERLAP_STEP_M:
+            pts.append(p)
+    a = np.asarray(pts, dtype=float)
+    lat0 = math.radians(float(a[:, 0].mean()))
+    y = a[:, 0] * 111320.0
+    x = a[:, 1] * 111320.0 * math.cos(lat0)
+    return np.column_stack([x, y])
+
+
+def _feature_points(feat):
+    """Projected points for a finished feature (geometry is [lng, lat])."""
+    coords = [(lat, lng) for lng, lat in feat["geometry"]["coordinates"]]
+    return _projected_points(coords)
+
+
+def _overlap_frac(P):
+    """Fraction of the route that passes within ~25 m of a NON-adjacent part of
+    itself — the out-and-back "shoelace" feel. 0 = a clean round loop."""
+    n = len(P)
+    if n < 2 * _OVERLAP_SKIP + 2:
+        return 0.0
+    d = np.linalg.norm(P[:, None, :] - P[None, :, :], axis=2)
+    idx = np.arange(n)
+    d[np.abs(idx[:, None] - idx[None, :]) <= _OVERLAP_SKIP] = np.inf
+    return float((d.min(axis=1) < _OVERLAP_NEAR_M).mean())
+
+
+def _similar(P, Q):
+    """True if ≥ _DEDUPE_FRAC of P's points lie within ~25 m of route Q."""
+    d = np.linalg.norm(P[:, None, :] - Q[None, :, :], axis=2)
+    return float((d.min(axis=1) < _OVERLAP_NEAR_M).mean()) >= _DEDUPE_FRAC
+
+
+def _dedupe(cands):
+    """Drop near-identical candidates (keep the best-scored of each shape
+    family) and cap the list, so "מסלול הבא" cycles through real alternatives."""
+    kept, kept_pts = [], []
+    for f in cands:
+        P = _feature_points(f)
+        if any(_similar(P, Q) for Q in kept_pts):
+            continue
+        kept.append(f)
+        kept_pts.append(P)
+        if len(kept) >= MAX_RETURNED:
+            break
+    return kept
+
+
 def _add_quality_fracs(region, full, feat):
     """Attach length-weighted pleasant / scenic / off-road fractions to a feature."""
     seg_len = region.length
@@ -164,6 +232,8 @@ def _add_quality_fracs(region, full, feat):
         sum(seg_len[i] for i in full if region.scenic[i]) / total, 3)
     feat["properties"]["offroad_frac"] = round(
         sum(seg_len[i] for i in full if region.offroad[i]) / total, 3)
+    feat["properties"]["overlap_frac"] = round(
+        _overlap_frac(_feature_points(feat)), 3)
     return feat
 
 
@@ -457,8 +527,10 @@ def _score(feature, target_m):
         + w["dist"] * f["dist"]
         + w["pleasant"] * f["pleasant"]
         + w.get("scenic", 0.0) * f["scenic"]
-        # Fixed (not learned) so among qualifying routes the least off-road wins.
+        # Fixed (not learned) so among qualifying routes the least off-road,
+        # roundest loop wins.
         + SCORE_W_OFFROAD * feature["properties"].get("offroad_frac", 0.0)
+        + SCORE_W_OVERLAP * feature["properties"].get("overlap_frac", 0.0)
     )
 
 
@@ -470,8 +542,8 @@ def _budget_for(target_m):
     if km <= 8:
         return N_CANDIDATES, MAX_CORRECTION_PASSES, 5.0
     if km <= 14:
-        return 14, 3, 8.0
-    return 10, 4, 10.0
+        return 16, 3, 8.0
+    return 12, 4, 10.0
 
 
 def find_loop_candidates(region, lat, lng, target_m, n=None,
@@ -586,7 +658,9 @@ def find_loop_candidates(region, lat, lng, target_m, n=None,
                 good_n = sum(1 for f in results if _qualifies(f))
                 elapsed = time.monotonic() - t0
                 if not pending_landmark:
-                    if good_n >= EARLY_STOP_GOOD:
+                    # Even with plenty of qualifiers, keep collecting for shape
+                    # variety until half the budget is spent.
+                    if good_n >= EARLY_STOP_GOOD and elapsed >= 0.5 * deadline_s:
                         break                       # plenty — fast path
                     if good_n >= 1 and elapsed >= deadline_s:
                         break                       # have one, past soft deadline
@@ -623,15 +697,18 @@ def find_loop_candidates(region, lat, lng, target_m, n=None,
             # qualifying routes exist, return only those (still score-ordered).
             close = [f for f in on_road
                      if f["properties"]["distance_m"] <= DIST_QUALIFY_HI * target_m]
-            return close if close else on_road
+            # Accurate routes lead, but PAD with the remaining qualifying shapes
+            # so "מסלול הבא" still offers different loops (they may run longer).
+            rest = [f for f in on_road if f not in close]
+            return _dedupe(close + rest)
         low_turn = [f for f in meets
                     if f["properties"]["sharp_turns_per_km"] <= MAX_TURNS_PER_KM]
-        return low_turn if low_turn else meets[:3]
+        return _dedupe(low_turn if low_turn else meets)
 
     # No route here reaches the requested length → return the LONGEST available
     # (closest from below), flagged so the UI says it's shorter than requested.
-    longest = sorted(results, key=lambda f: f["properties"]["distance_m"],
-                     reverse=True)[:3]
+    longest = _dedupe(sorted(results, key=lambda f: f["properties"]["distance_m"],
+                             reverse=True))[:3]
     for f in longest:
         f["properties"]["below_requested"] = (
             f["properties"]["distance_m"] < target_m
