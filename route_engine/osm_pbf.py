@@ -108,6 +108,44 @@ def features_from_pbf(pbf_path: str, bbox):
 
     return green_polys, water_geoms, park_polys
 
+
+def bbox_for(lat: float, lng: float, distance_m: float):
+    """A tile bbox (min_lon,min_lat,max_lon,max_lat) sized to a loop's reach —
+    mirrors ondemand's radius (the far polygon waypoint sits ~0.32·distance)."""
+    import math
+    radius = max(2500.0, min(9000.0, 0.32 * distance_m + 1500.0))
+    dlat = radius / 111320.0
+    dlon = radius / (111320.0 * max(0.2, math.cos(math.radians(lat))))
+    return (lng - dlon, lat - dlat, lng + dlon, lat + dlat)
+
+
+def build_region_data(lat: float, lng: float, distance_m: float, place=None):
+    """Resolve → download → crop → build a serialized region dict for any point
+    on earth, straight from a Geofabrik extract (no Overpass). Raises with a
+    stable token if the point isn't covered by any extract."""
+    from . import extracts
+    from .builder import (
+        prune, _green_edges_from_polys, _scenic_edges_from_geoms,
+        _MIN_PARK_AREA_DEG2, serialize,
+    )
+    from .dual_graph import build_dual_graph
+
+    bbox = bbox_for(lat, lng, distance_m)
+    res = extracts.resolve_extract(lat, lng)
+    if res is None:
+        raise RuntimeError("no_extract: point not covered by any OSM extract")
+    ext_id, url = res
+    pbf = extracts.ensure_extract(ext_id, url)
+    src = extracts.crop_extract(pbf, bbox, pbf + ".crop.pbf")
+
+    G = prune(graph_from_pbf(src, bbox))
+    green_polys, water_geoms, park_polys = features_from_pbf(src, bbox)
+    green_keys = _green_edges_from_polys(G, green_polys)
+    big_parks = [g for g in park_polys if g.area >= _MIN_PARK_AREA_DEG2]
+    scenic_keys = _scenic_edges_from_geoms(G, water_geoms, big_parks)
+    DG, info = build_dual_graph(G, green_keys=green_keys, scenic_keys=scenic_keys)
+    return serialize(G, DG, info, place or f"extract:{ext_id}")
+
 # Same as builder._DROP_HIGHWAYS — skip unsafe roads up front (smaller graph).
 _DROP = {"motorway", "motorway_link", "trunk", "trunk_link"}
 
