@@ -13,6 +13,8 @@ rustworkx==0.17.1
 
 # --- offline OSM .pbf reader (worldwide builder; alternative to live Overpass) ---
 osmium==4.3.1
+# --- region store: lazy-load region pickles from a GCS bucket (worldwide) ---
+google-cloud-storage>=2.18
 
 # --- geo stack (transitive via osmnx; pinned for reproducible .pkl loading) ---
 geopandas==1.1.3

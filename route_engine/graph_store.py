@@ -4,9 +4,10 @@ serves region lookup. The API loads everything once at startup.
 """
 from __future__ import annotations
 
-import glob
+import json
 import os
 import pickle
+from collections import OrderedDict
 
 import numpy as np
 import rustworkx as rx
@@ -14,7 +15,14 @@ import rustworkx as rx
 from .geo import haversine
 
 _REGIONS_DIR = os.path.join(os.path.dirname(__file__), "regions")
-_REGIONS: list["Region"] = []
+# Region storage: a GCS bucket in production (env REGIONS_BUCKET), else the local
+# regions/ dir. Regions load LAZILY (on first request) into a bounded LRU so RAM
+# stays flat no matter how many world regions are available.
+_BUCKET = os.getenv("REGIONS_BUCKET", "").strip()
+_LRU_MAX = int(os.getenv("REGIONS_LRU_MAX", "10"))
+_INDEX: list["RegionMeta"] = []          # lightweight {name, file, bbox}
+_CACHE: "OrderedDict[str, Region]" = OrderedDict()   # file -> loaded Region (LRU)
+_gcs_bucket = None
 
 # A precomputed region's bbox is the whole municipality rectangle, which can
 # include the sea or neighbouring towns it has no streets for. Only treat a
@@ -115,24 +123,84 @@ class Region:
                 for j in idx[: k * 3]]
 
 
+class RegionMeta:
+    """Lightweight index entry — enough to pick a region without loading it."""
+
+    __slots__ = ("name", "file", "bbox")
+
+    def __init__(self, name, file, bbox):
+        self.name = name
+        self.file = file
+        self.bbox = bbox  # [min_lat, min_lng, max_lat, max_lng]
+
+    def contains(self, lat, lng) -> bool:
+        a, b, c, d = self.bbox
+        return a <= lat <= c and b <= lng <= d
+
+
+# ---- storage backend (GCS bucket or local dir) ----------------------------
+
+def _gcs():
+    global _gcs_bucket
+    if _gcs_bucket is None:
+        from google.cloud import storage  # lazy import; only when a bucket is set
+        _gcs_bucket = storage.Client().bucket(_BUCKET)
+    return _gcs_bucket
+
+
+def _read_bytes(name: str) -> bytes:
+    """Read a region artifact ('index.json' / '<file>.pkl') from GCS or disk."""
+    if _BUCKET:
+        return _gcs().blob(name).download_as_bytes()
+    with open(os.path.join(_REGIONS_DIR, name), "rb") as f:
+        return f.read()
+
+
 def load_all(regions_dir: str = _REGIONS_DIR):
-    """(Re)load every regions/*.pkl into memory. Returns the list of regions."""
-    global _REGIONS
-    _REGIONS = []
-    for path in sorted(glob.glob(os.path.join(regions_dir, "*.pkl"))):
-        with open(path, "rb") as f:
-            _REGIONS.append(Region(pickle.load(f)))
-    return _REGIONS
+    """Load the region INDEX (not the regions themselves). Regions are fetched
+    lazily on first use. Returns the list of RegionMeta. Resilient: an empty/
+    missing index just means no precomputed coverage (everything on-demand)."""
+    global _REGIONS_DIR, _INDEX, _CACHE
+    _REGIONS_DIR = regions_dir
+    _CACHE = OrderedDict()
+    try:
+        entries = json.loads(_read_bytes("index.json"))
+    except Exception as exc:  # noqa: BLE001 — missing index → no precomputed regions
+        print(f"region index unavailable ({exc}); precomputed coverage disabled")
+        _INDEX = []
+        return _INDEX
+    _INDEX = [RegionMeta(e["name"], e["file"], e["bbox"]) for e in entries]
+    src = f"gs://{_BUCKET}" if _BUCKET else regions_dir
+    print(f"region index: {len(_INDEX)} regions from {src} (lazy LRU={_LRU_MAX})")
+    return _INDEX
 
 
 def regions():
-    return _REGIONS
+    """Lightweight metadata for every available region (no graphs loaded)."""
+    return _INDEX
+
+
+def _get_region(file: str) -> "Region":
+    """Return the loaded Region for `file`, fetching + caching (LRU) on a miss."""
+    cached = _CACHE.get(file)
+    if cached is not None:
+        _CACHE.move_to_end(file)
+        return cached
+    region = Region(pickle.loads(_read_bytes(file)))
+    _CACHE[file] = region
+    _CACHE.move_to_end(file)
+    while len(_CACHE) > _LRU_MAX:
+        _CACHE.popitem(last=False)  # evict least-recently-used
+    return region
 
 
 def region_for(lat, lng):
     """Region that actually covers the point (bbox + a nearby street node),
-    else None so the caller can build an on-demand tile at the real location."""
-    for r in _REGIONS:
-        if r.contains(lat, lng) and r.coverage_gap_m(lat, lng) <= _MAX_COVERAGE_GAP_M:
+    else None so the caller can build an on-demand tile. Loads candidates lazily."""
+    for m in _INDEX:
+        if not m.contains(lat, lng):
+            continue
+        r = _get_region(m.file)
+        if r.coverage_gap_m(lat, lng) <= _MAX_COVERAGE_GAP_M:
             return r
     return None
