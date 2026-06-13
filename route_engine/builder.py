@@ -67,21 +67,12 @@ def consolidate(G):
     return Gc
 
 
-def green_edges(G, place):
-    """Set of edge keys (u,v,k) whose midpoint lies in a park / green area."""
-    tags = {
-        "leisure": ["park", "garden", "nature_reserve", "pitch", "common"],
-        "landuse": ["grass", "recreation_ground", "forest", "meadow", "village_green"],
-        "natural": ["wood", "scrub", "grassland"],
-    }
-    try:
-        gdf = ox.features_from_place(place, tags=tags)
-    except Exception as exc:  # noqa: BLE001
-        print(f"      (parks unavailable: {exc})")
-        return set()
-    polys = [g for g in gdf.geometry
+def _green_edges_from_polys(G, polys):
+    """Edge keys (u,v,k) whose midpoint lies in a park / green polygon."""
+    polys = [g for g in polys
              if g is not None and g.geom_type in ("Polygon", "MultiPolygon")]
     if not polys:
+        print("      green edges: 0")
         return set()
     tree = STRtree(polys)
     green = set()
@@ -92,6 +83,18 @@ def green_edges(G, place):
             green.add((u, v, key))
     print(f"      green edges: {len(green)}")
     return green
+
+
+def green_edges(G, place):
+    """Set of edge keys (u,v,k) whose midpoint lies in a park / green area."""
+    tags = {
+        "leisure": ["park", "garden", "nature_reserve", "pitch", "common"],
+        "landuse": ["grass", "recreation_ground", "forest", "meadow", "village_green"],
+        "natural": ["wood", "scrub", "grassland"],
+    }
+    gdf = _features_place(place, tags)
+    polys = list(gdf.geometry) if gdf is not None else []
+    return _green_edges_from_polys(G, polys)
 
 
 # ~85 m in degrees — a street this close to water counts as scenic (it has the
