@@ -119,18 +119,32 @@ def bbox_for(lat: float, lng: float, distance_m: float):
     return (lng - dlon, lat - dlat, lng + dlon, lat + dlat)
 
 
-def build_region_data(lat: float, lng: float, distance_m: float, place=None):
+def bbox_around(lat: float, lng: float, radius_m: float):
+    """A square bbox of half-width radius_m around a point (for city precompute)."""
+    import math
+    dlat = radius_m / 111320.0
+    dlon = radius_m / (111320.0 * max(0.2, math.cos(math.radians(lat))))
+    return (lng - dlon, lat - dlat, lng + dlon, lat + dlat)
+
+
+def build_region_data(lat: float, lng: float, distance_m: float, place=None,
+                       bbox=None, consolidate=False):
     """Resolve → download → crop → build a serialized region dict for any point
     on earth, straight from a Geofabrik extract (no Overpass). Raises with a
-    stable token if the point isn't covered by any extract."""
+    stable token if the point isn't covered by any extract. Pass `bbox` to
+    override the loop-sized tile (e.g. a generous city-size box for precompute);
+    pass `consolidate=True` to merge complex intersections (smaller graph —
+    used for precomputed cities, skipped for fast on-demand tiles)."""
     from . import extracts
+    from . import builder as _b
     from .builder import (
         prune, _green_edges_from_polys, _scenic_edges_from_geoms,
         _MIN_PARK_AREA_DEG2, serialize,
     )
     from .dual_graph import build_dual_graph
 
-    bbox = bbox_for(lat, lng, distance_m)
+    if bbox is None:
+        bbox = bbox_for(lat, lng, distance_m)
     res = extracts.resolve_extract(lat, lng)
     if res is None:
         raise RuntimeError("no_extract: point not covered by any OSM extract")
@@ -139,6 +153,11 @@ def build_region_data(lat: float, lng: float, distance_m: float, place=None):
     src = extracts.crop_extract(pbf, bbox, pbf + ".crop.pbf")
 
     G = prune(graph_from_pbf(src, bbox))
+    if consolidate:
+        try:
+            G = prune(_b.consolidate(G))  # merge junctions → far smaller graph
+        except Exception as exc:  # noqa: BLE001
+            print(f"      consolidation skipped ({exc})")
     green_polys, water_geoms, park_polys = features_from_pbf(src, bbox)
     green_keys = _green_edges_from_polys(G, green_polys)
     big_parks = [g for g in park_polys if g.area >= _MIN_PARK_AREA_DEG2]
