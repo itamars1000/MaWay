@@ -71,6 +71,16 @@ def health():
         "ok": True,
         "regions": [r.name for r in graph_store.regions()],
         "feedback_count": learning.count(),
+        # On-demand worldwide pipeline status (booleans only — no secret values).
+        # `enabled` must be true for uncovered areas to build in the cloud;
+        # if false, the named var(s) aren't reaching this revision.
+        "ondemand": {
+            "enabled": world_store.enabled(),
+            "regions_bucket": bool(graph_store._BUCKET),
+            "build_job": bool(world_store._BUILD_JOB),
+            "build_job_region": bool(world_store._REGION),
+            "gcp_project": bool(world_store._PROJECT),
+        },
     }
 
 
