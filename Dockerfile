@@ -23,6 +23,15 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# System libs the compiled wheels link against at runtime. pyosmium (the offline
+# OSM .pbf reader used by the worldwide build Job) needs libexpat + zlib + bz2 —
+# python:slim omits libexpat, so `import osmium` fails without this. Cheap layer,
+# only the Job exercises osmium (the API itself never imports it).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libexpat1 zlib1g libbz2-1.0 libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install deps first so this layer is cached unless requirements.txt changes.
 COPY route_engine/requirements.txt route_engine/requirements.txt
 RUN pip install --no-cache-dir -r route_engine/requirements.txt
