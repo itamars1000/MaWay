@@ -30,9 +30,17 @@ _MEM: "OrderedDict[str, Region]" = OrderedDict()
 _LOCK = threading.Lock()
 
 
-# Bump when the tile build changes shape (e.g. scenic added, off-road dropped)
-# so stale cached tiles are rebuilt instead of served.
-_TILE_VERSION = "v6"
+# Bump when the tile build changes shape (e.g. scenic added, off-road dropped,
+# or the keying scheme changes) so stale cached tiles are rebuilt, not served.
+# v7: loop tiles are distance-INDEPENDENT (one generous tile per cell serves
+# every loop length) so changing the requested distance never rebuilds the area.
+_TILE_VERSION = "v7"
+
+# Radius of a loop tile. One generous, distance-independent tile per ~1 km cell:
+# big enough that loops up to the API max (~21 km, reach ≈ distance/π) stay inside
+# it, so any distance reuses the same tile. Heavier than a per-distance tile but
+# built once per area; tune REGIONS_LRU_MAX if memory gets tight.
+_LOOP_TILE_RADIUS = 7000.0
 
 
 def tile_key(lat, lng, distance_m, span_m=None):
@@ -41,7 +49,11 @@ def tile_key(lat, lng, distance_m, span_m=None):
     Shared by the local builder here AND the cloud build Job (route_engine/
     build_job.py) + the GCS on-demand store (world_store.py), so a tile built in
     the cloud is keyed identically to one built locally. Returns
-    (key, radius_m, cell_lat, cell_lng)."""
+    (key, radius_m, cell_lat, cell_lng).
+
+    Loop tiles key on the ~1 km cell ONLY (no distance) and use a fixed generous
+    radius, so 5 km and 10 km in the same spot hit the same tile — no rebuild.
+    A→B tiles still key on the span (they must cover two specific endpoints)."""
     cell_lat = round(lat, 2)
     cell_lng = round(lng, 2)
     if span_m is not None:
@@ -49,10 +61,8 @@ def tile_key(lat, lng, distance_m, span_m=None):
         radius = max(2500.0, min(12000.0, 0.5 * span_m + 2500.0))
         key = f"{cell_lat}_{cell_lng}_r{int(math.ceil(radius / 1000.0))}_{_TILE_VERSION}"
     else:
-        # Loop: the far polygon waypoint sits ~distance/π (~0.318·d) from start.
-        radius = max(2500.0, min(9000.0, 0.32 * distance_m + 1500.0))
-        dbucket = int(math.ceil(distance_m / 5000.0) * 5)
-        key = f"{cell_lat}_{cell_lng}_{dbucket}_{_TILE_VERSION}"
+        radius = _LOOP_TILE_RADIUS
+        key = f"{cell_lat}_{cell_lng}_{_TILE_VERSION}"
     return key, radius, cell_lat, cell_lng
 
 

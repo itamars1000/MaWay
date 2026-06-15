@@ -81,7 +81,7 @@ def enabled() -> bool:
 def get_or_trigger(lat, lng, distance_m, span_m=None):
     """Return a ready on-demand Region for (lat,lng), or trigger a build and
     raise Building. Re-raises RuntimeError if a recent build failed."""
-    key, _radius, _cl, _cn = ondemand.tile_key(lat, lng, distance_m, span_m=span_m)
+    key, radius, cell_lat, cell_lng = ondemand.tile_key(lat, lng, distance_m, span_m=span_m)
 
     region = graph_store.load_ondemand(key)  # cached or already-built pkl
     if region is not None:
@@ -107,7 +107,12 @@ def get_or_trigger(lat, lng, distance_m, span_m=None):
                                    "name": f"area {lat:.3f},{lng:.3f}",
                                    "updated_at": time.time()})
     try:
-        _run_job(key, lat, lng, distance_m, span_m)
+        # Build centred on the cell with the key's radius (loops are distance-
+        # independent → a fixed generous radius; A→B keeps its span size). The
+        # Job sizes by distance, so convert the radius back to a build distance.
+        from .osm_pbf import distance_for_radius
+        build_dist = distance_m if span_m is not None else distance_for_radius(radius)
+        _run_job(key, cell_lat, cell_lng, build_dist, span_m)
     except Exception as exc:  # noqa: BLE001 — couldn't even start the build
         graph_store.write_marker(key, {"status": "error",
                                        "error": f"trigger failed: {exc}"[:500],

@@ -119,6 +119,13 @@ def bbox_for(lat: float, lng: float, distance_m: float):
     return (lng - dlon, lat - dlat, lng + dlon, lat + dlat)
 
 
+def distance_for_radius(radius_m: float) -> float:
+    """Inverse of bbox_for's radius formula: the loop distance whose tile radius
+    is ~radius_m. Lets a caller (world_store) size a build by radius while the
+    builder keeps taking a distance — keeping the radius math in one place."""
+    return max(0.0, (radius_m - 1500.0) / 0.32)
+
+
 def bbox_around(lat: float, lng: float, radius_m: float):
     """A square bbox of half-width radius_m around a point (for city precompute)."""
     import math
