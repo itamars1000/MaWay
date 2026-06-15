@@ -27,10 +27,42 @@ import time
 from . import graph_store, ondemand
 
 _BUILD_JOB = os.getenv("BUILD_JOB", "").strip()
-_PROJECT = os.getenv("GCP_PROJECT", "").strip()
+_PROJECT_ENV = os.getenv("GCP_PROJECT", "").strip()
 _REGION = os.getenv("BUILD_JOB_REGION", os.getenv("GCP_REGION", "")).strip()
 _BUILD_TIMEOUT_S = float(os.getenv("BUILD_TIMEOUT_S", "1200"))
 _ERROR_COOLDOWN_S = float(os.getenv("BUILD_ERROR_COOLDOWN_S", "300"))
+
+_project_cache: str | None = None
+
+
+def _project() -> str:
+    """The GCP project id. Prefer GCP_PROJECT, else auto-detect on Cloud Run
+    (ADC / metadata server) so it needn't be set by hand. Cached after first use."""
+    global _project_cache
+    if _PROJECT_ENV:
+        return _PROJECT_ENV
+    if _project_cache is not None:
+        return _project_cache
+    proj = ""
+    try:
+        import google.auth
+        _, proj = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        proj = proj or ""
+    except Exception:  # noqa: BLE001
+        proj = ""
+    if not proj:  # metadata server fallback (Cloud Run / GCE)
+        try:
+            import requests
+            proj = requests.get(
+                "http://metadata.google.internal/computeMetadata/v1/project/project-id",
+                headers={"Metadata-Flavor": "Google"}, timeout=2,
+            ).text.strip()
+        except Exception:  # noqa: BLE001
+            proj = ""
+    _project_cache = proj
+    return proj
 
 
 class Building(Exception):
@@ -43,7 +75,7 @@ class Building(Exception):
 
 def enabled() -> bool:
     """True only when the cloud build pipeline is fully wired (else local path)."""
-    return bool(graph_store._BUCKET and _BUILD_JOB and _PROJECT and _REGION)
+    return bool(graph_store._BUCKET and _BUILD_JOB and _REGION and _project())
 
 
 def get_or_trigger(lat, lng, distance_m, span_m=None):
@@ -93,7 +125,7 @@ def _run_job(key, lat, lng, distance_m, span_m):
         scopes=["https://www.googleapis.com/auth/cloud-platform"]
     )
     session = AuthorizedSession(creds)
-    url = (f"https://run.googleapis.com/v2/projects/{_PROJECT}/locations/"
+    url = (f"https://run.googleapis.com/v2/projects/{_project()}/locations/"
            f"{_REGION}/jobs/{_BUILD_JOB}:run")
     env = [
         {"name": "TILE_KEY", "value": key},

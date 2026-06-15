@@ -79,7 +79,7 @@ def health():
             "regions_bucket": bool(graph_store._BUCKET),
             "build_job": bool(world_store._BUILD_JOB),
             "build_job_region": bool(world_store._REGION),
-            "gcp_project": bool(world_store._PROJECT),
+            "gcp_project": bool(world_store._project()),
         },
     }
 
