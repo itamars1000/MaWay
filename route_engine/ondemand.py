@@ -35,12 +35,13 @@ _LOCK = threading.Lock()
 _TILE_VERSION = "v6"
 
 
-def get_or_build(lat, lng, distance_m, span_m=None):
-    """Return a Region covering (lat,lng), building if needed.
+def tile_key(lat, lng, distance_m, span_m=None):
+    """The cache key + build radius for an on-demand tile at (lat,lng).
 
-    For loops the tile is sized to the loop (~0.32·distance). For A→B, pass
-    `span_m = |A B|` and `(lat,lng) = midpoint(A,B)` so the tile is sized/centred
-    to cover BOTH endpoints (radius ≈ span/2 + margin)."""
+    Shared by the local builder here AND the cloud build Job (route_engine/
+    build_job.py) + the GCS on-demand store (world_store.py), so a tile built in
+    the cloud is keyed identically to one built locally. Returns
+    (key, radius_m, cell_lat, cell_lng)."""
     cell_lat = round(lat, 2)
     cell_lng = round(lng, 2)
     if span_m is not None:
@@ -52,6 +53,16 @@ def get_or_build(lat, lng, distance_m, span_m=None):
         radius = max(2500.0, min(9000.0, 0.32 * distance_m + 1500.0))
         dbucket = int(math.ceil(distance_m / 5000.0) * 5)
         key = f"{cell_lat}_{cell_lng}_{dbucket}_{_TILE_VERSION}"
+    return key, radius, cell_lat, cell_lng
+
+
+def get_or_build(lat, lng, distance_m, span_m=None):
+    """Return a Region covering (lat,lng), building if needed.
+
+    For loops the tile is sized to the loop (~0.32·distance). For A→B, pass
+    `span_m = |A B|` and `(lat,lng) = midpoint(A,B)` so the tile is sized/centred
+    to cover BOTH endpoints (radius ≈ span/2 + margin)."""
+    key, radius, cell_lat, cell_lng = tile_key(lat, lng, distance_m, span_m=span_m)
 
     with _LOCK:
         if key in _MEM:                      # hot in memory

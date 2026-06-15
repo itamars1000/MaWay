@@ -22,8 +22,23 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from . import elevation, graph_store, learning, ondemand
+from . import elevation, graph_store, learning, ondemand, world_store
 from .router import find_loop_candidates, RouteError
+
+
+def _ondemand_region(lat, lng, distance, span_m=None):
+    """A Region for an uncovered point. In the cloud (world_store.enabled) this
+    triggers an async build Job and raises HTTP 425 `building` while it runs; the
+    web app polls until ready. Locally it builds synchronously via Overpass."""
+    if world_store.enabled():
+        try:
+            return world_store.get_or_trigger(lat, lng, distance, span_m=span_m)
+        except world_store.Building:
+            raise HTTPException(
+                status_code=425,
+                detail="building: preparing this area for the first time",
+            )
+    return ondemand.get_or_build(lat, lng, distance, span_m=span_m)
 
 
 @asynccontextmanager
@@ -86,6 +101,17 @@ def regions():
     return [{"name": r.name, "bbox": r.bbox} for r in graph_store.regions()]
 
 
+@app.post("/admin/reload")
+def admin_reload(token: str = Query(...)):
+    """Re-read the base region index from storage without a restart, so a city
+    uploaded to the bucket goes live immediately. Guarded by ADMIN_TOKEN."""
+    expected = os.getenv("ADMIN_TOKEN", "").strip()
+    if not expected or token != expected:
+        raise HTTPException(status_code=403, detail="forbidden")
+    count = graph_store.reload()
+    return {"ok": True, "regions": count}
+
+
 @app.get("/loop")
 def loop(
     lat: float = Query(..., ge=-90, le=90),
@@ -125,7 +151,9 @@ def loop(
             mid = ((lat + end_pt[0]) / 2.0, (lng + end_pt[1]) / 2.0)
             span = graph_store.haversine((lat, lng), end_pt)
             try:
-                region = ondemand.get_or_build(mid[0], mid[1], distance, span_m=span)
+                region = _ondemand_region(mid[0], mid[1], distance, span_m=span)
+            except HTTPException:
+                raise
             except Exception as exc:  # noqa: BLE001
                 raise HTTPException(
                     status_code=422,
@@ -133,7 +161,9 @@ def loop(
                 )
     elif region is None:
         try:
-            region = ondemand.get_or_build(lat, lng, distance)
+            region = _ondemand_region(lat, lng, distance)
+        except HTTPException:
+            raise
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(
                 status_code=422,

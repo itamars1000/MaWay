@@ -156,6 +156,61 @@ def _read_bytes(name: str) -> bytes:
         return f.read()
 
 
+def _write_bytes(name: str, data: bytes, content_type: str | None = None) -> None:
+    """Write a region artifact to GCS or disk (used by the build Job / markers)."""
+    if _BUCKET:
+        _gcs().blob(name).upload_from_string(data, content_type=content_type)
+        return
+    path = os.path.join(_REGIONS_DIR, name)
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "wb") as f:
+        f.write(data)
+
+
+# ---- on-demand tiles (built in the cloud, served lazily) -------------------
+# On-demand tiles live under this prefix, separate from the precomputed base
+# regions listed in index.json. Each tile has a sidecar JSON "marker" recording
+# its build status so the server can show a "building…" state without a registry
+# service. See route_engine/world_store.py (trigger) + build_job.py (builder).
+_ONDEMAND_PREFIX = "ondemand/"
+
+
+def read_marker(key: str) -> dict | None:
+    """The build-state marker for an on-demand tile, or None if never built."""
+    try:
+        raw = _read_bytes(f"{_ONDEMAND_PREFIX}{key}.json")
+    except Exception:  # noqa: BLE001 — missing marker → not built yet
+        return None
+    try:
+        return json.loads(raw)
+    except Exception:  # noqa: BLE001 — corrupt marker → treat as missing
+        return None
+
+
+def write_marker(key: str, payload: dict) -> None:
+    """Record an on-demand tile's build state (status/updated_at/bbox/…)."""
+    _write_bytes(
+        f"{_ONDEMAND_PREFIX}{key}.json",
+        json.dumps(payload).encode("utf-8"),
+        content_type="application/json",
+    )
+
+
+def load_ondemand(key: str) -> "Region | None":
+    """Load a ready on-demand tile pickle into the LRU (or return it cached).
+    Returns None if the pickle isn't present (e.g. still building / failed)."""
+    try:
+        return _get_region(f"{_ONDEMAND_PREFIX}{key}.pkl")
+    except Exception:  # noqa: BLE001 — pkl missing/unreadable
+        return None
+
+
+def reload():
+    """Re-read the base region index from storage without a restart (so a newly
+    uploaded base city is picked up). Returns the new region count."""
+    return len(load_all(_REGIONS_DIR))
+
+
 def load_all(regions_dir: str = _REGIONS_DIR):
     """Load the region INDEX (not the regions themselves). Regions are fetched
     lazily on first use. Returns the list of RegionMeta. Resilient: an empty/

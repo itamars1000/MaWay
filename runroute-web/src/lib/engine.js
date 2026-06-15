@@ -18,13 +18,21 @@ const MAX_ATTEMPTS = 3;
 const RETRY_BASE_MS = 1500; // backoff: 1.5s, then 3s
 const RETRYABLE_STATUS = new Set([404, 502, 503, 504]);
 
+// First request in an uncovered area: the engine builds that area's map in the
+// cloud (async) and answers 425 `building` meanwhile. That's not a failure — we
+// poll patiently until the tile is ready (a first-time build is ~tens of seconds
+// to a few minutes incl. the data download), with a steady longer interval.
+const BUILD_POLL_MS = 6000;
+const BUILD_MAX_POLLS = 40; // ~4 min ceiling before we give up for this request
+
 /** Error with a stable `code` so the UI can show a friendly Hebrew message. */
 export class EngineError extends Error {
-  constructor(code, message, { retryable = false } = {}) {
+  constructor(code, message, { retryable = false, building = false } = {}) {
     super(message);
     this.name = 'EngineError';
-    this.code = code; // 'no-start' | 'offline' | 'http' | 'empty' | ...
+    this.code = code; // 'no-start' | 'offline' | 'http' | 'empty' | 'building' | ...
     this.retryable = retryable; // transient infra failure → safe to retry
+    this.building = building; // area is being built → poll, don't fast-retry
   }
 }
 
@@ -75,7 +83,7 @@ function featureToCandidate(feature) {
  * best-first). Returns a non-empty array so the UI can cycle with "מסלול הבא",
  * or throws EngineError('no-quality') when the area has none.
  */
-export async function generateFromEngine({ start, distanceKm, via, end, signal }) {
+export async function generateFromEngine({ start, distanceKm, via, end, signal, onBuilding }) {
   if (!start) throw new EngineError('no-start', 'No start position');
   if (end && !(end.lat && end.lng)) throw new EngineError('no-end', 'No end position');
 
@@ -95,10 +103,14 @@ export async function generateFromEngine({ start, distanceKm, via, end, signal }
   const url = `${BASE}/loop?${params}`;
 
   // Retry transient infra failures (free-tier recycling / cold start) a few
-  // times with backoff. Real answers — success or a definitive 422 — return or
-  // throw immediately; an external abort (a newer request) stops at once.
+  // times with a short backoff; poll a `building` area patiently with a longer
+  // interval. Real answers — success or a definitive 422 — return or throw
+  // immediately; an external abort (a newer request) stops at once.
   let lastErr;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+  let attempt = 0; // transient-infra retries (short backoff)
+  let polls = 0; // first-time-area build polls (long backoff)
+  let notified = false;
+  for (;;) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     try {
       return await attemptLoop(url, signal);
@@ -106,10 +118,19 @@ export async function generateFromEngine({ start, distanceKm, via, end, signal }
       if (err.name === 'AbortError') throw err; // superseded by a newer request
       if (!(err instanceof EngineError) || !err.retryable) throw err; // definitive
       lastErr = err;
-      if (attempt < MAX_ATTEMPTS - 1) await delay(RETRY_BASE_MS * (attempt + 1), signal);
+      if (err.building) {
+        if (!notified) {
+          notified = true;
+          onBuilding?.(); // let the UI show "preparing this area…"
+        }
+        if (++polls > BUILD_MAX_POLLS) throw err; // gave it long enough
+        await delay(BUILD_POLL_MS, signal);
+        continue;
+      }
+      if (++attempt >= MAX_ATTEMPTS) throw lastErr; // exhausted transient retries
+      await delay(RETRY_BASE_MS * attempt, signal);
     }
   }
-  throw lastErr; // exhausted retries on a transient failure
 }
 
 /** One attempt at GET /loop. Throws EngineError (with `retryable`) or AbortError. */
@@ -149,6 +170,13 @@ async function attemptLoop(url, signal) {
       detail = (await res.json())?.detail ?? '';
     } catch {
       /* ignore non-JSON error bodies */
+    }
+    // 425 = the area is being built for the first time (cloud async build).
+    if (res.status === 425 || String(detail).startsWith('building')) {
+      throw new EngineError('building', detail || 'building area', {
+        retryable: true,
+        building: true,
+      });
     }
     if (res.status === 422) {
       const d = String(detail);

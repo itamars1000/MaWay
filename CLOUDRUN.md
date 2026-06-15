@@ -85,3 +85,94 @@ Tweak resources/region via substitutions, e.g.:
   use, mount a GCS bucket instead.
 - **Cost:** scale-to-zero + the free tier (~2M req/mo) means low traffic ≈ $0.
   Set a Billing **Budget alert** ($1–5) for peace of mind.
+
+---
+
+## Worldwide on-demand coverage (async build Job)
+
+Routes **anywhere on earth**, built **automatically on first request**, at
+**zero idle cost**. When a request lands outside every precomputed region, the
+serving service triggers a separate **Cloud Run Job** that builds that area's
+tile from a Geofabrik extract (no Overpass — works from cloud IPs), uploads it to
+the regions bucket, and the service serves it from then on. While it builds, the
+API returns **HTTP 425 `building`** and the web app shows *"מכינים את האזור…"* and
+polls until ready.
+
+The Job runs the **same image** as the service — only the command differs
+(`python -m route_engine.build_job`) — so there's nothing extra to build.
+
+Set these once (replace the caps placeholders with your real values; `REGION`
+must match the service's region, e.g. `us-west1`):
+
+```bash
+PROJECT=maway-498818
+REGION=us-west1                 # same region as the service + bucket
+BUCKET=maway-regions            # the regions bucket (REGIONS_BUCKET)
+SERVICE=runroute-engine1        # your Cloud Run service name
+
+gcloud config set project "$PROJECT"
+
+# The image the service currently runs (the Job reuses it verbatim).
+IMAGE=$(gcloud run services describe "$SERVICE" --region "$REGION" \
+  --format='value(spec.template.spec.containers[0].image)')
+
+# Runtime SA both the service and the Job use (Compute default unless you set one).
+SA=$(gcloud run services describe "$SERVICE" --region "$REGION" \
+  --format='value(spec.template.spec.serviceAccountName)')
+SA=${SA:-$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')-compute@developer.gserviceaccount.com}
+
+# 1) Create the build Job: same image, builder entrypoint, bigger box + long timeout
+#    (first build of a big country downloads a large extract).
+gcloud run jobs create runroute-build \
+  --image "$IMAGE" --region "$REGION" \
+  --command python --args=-m,route_engine.build_job \
+  --memory 4Gi --cpu 2 --task-timeout 1800s --max-retries 1 \
+  --service-account "$SA" \
+  --set-env-vars "REGIONS_BUCKET=$BUCKET"
+
+# 2) Let the Job write tiles+markers, and let the service trigger the Job.
+gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" \
+  --member "serviceAccount:$SA" --role roles/storage.objectAdmin
+gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member "serviceAccount:$SA" --role roles/run.developer
+gcloud iam service-accounts add-iam-policy-binding "$SA" \
+  --member "serviceAccount:$SA" --role roles/iam.serviceAccountUser
+
+# 3) Point the SERVICE at the Job (this is what flips on-demand from local-only
+#    Overpass to the cloud async build). ADMIN_TOKEN is optional (enables /admin/reload).
+gcloud run services update "$SERVICE" --region "$REGION" \
+  --update-env-vars "BUILD_JOB=runroute-build,BUILD_JOB_REGION=$REGION,GCP_PROJECT=$PROJECT,ADMIN_TOKEN=<pick-a-secret>"
+```
+
+**Verify end-to-end** — pick an uncovered city (e.g. Berlin):
+
+```bash
+URL=https://<service-url>
+# First call → 425 building (a Job execution starts):
+curl -i "$URL/loop?lat=52.52&lng=13.405&distance=5000"     # HTTP/1.1 425, detail "building:…"
+gcloud run jobs executions list --job runroute-build --region "$REGION"  # one Running
+# After it finishes (watch the execution; tens of seconds to a few minutes):
+curl -s "$URL/loop?lat=52.52&lng=13.405&distance=5000" | head -c 200      # real GeoJSON
+```
+
+Confirm the tile + marker landed in the bucket (`gs://$BUCKET/ondemand/…`), and
+that the service RAM stays bounded (regions load lazily into the LRU). Idle cost
+stays ≈ $0 — the Job scales to zero between builds.
+
+### Adding a precomputed base city in one command (no console, no redeploy)
+
+The same entrypoint, run locally with `--base`, builds a generous city and writes
+it straight to the live bucket; `POST /admin/reload` makes it live without a
+redeploy:
+
+```bash
+REGIONS_BUCKET=maway-regions \
+  route_engine/.venv/Scripts/python -m route_engine.build_job \
+  --base --lat 52.52 --lng 13.405 --name "Berlin, Germany" --slug berlin --radius 8000
+curl -X POST "https://<service-url>/admin/reload?token=<ADMIN_TOKEN>"
+```
+
+### Tunables (service env)
+- `BUILD_TIMEOUT_S` (default 1200) — a `building` marker older than this is
+  treated as stale and the build is retriggered.
+- `REGIONS_LRU_MAX` (default 10) — how many regions/tiles stay resident in RAM.

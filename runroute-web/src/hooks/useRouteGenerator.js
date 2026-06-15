@@ -19,6 +19,8 @@ const MESSAGES = {
   'no-end': 'בחר נקודת סיום (הקש על המפה או חפש כתובת).',
   'end-uncovered': 'היעד מחוץ לאזור הזמין כרגע — נסה יעד קרוב יותר.',
   'no-path': 'לא נמצא מסלול מ-A ל-B. נסה יעד אחר או מרחק אחר.',
+  building:
+    'מכינים את האזור הזה בפעם הראשונה — זה לוקח רגע. נסה שוב בעוד דקה.',
   default: 'משהו השתבש ביצירת המסלול. נסה שוב.',
 };
 
@@ -55,6 +57,11 @@ export function useRouteGenerator() {
         via: oneWay ? null : viaPoint,
         end: oneWay ? endPoint : null,
         signal: controller.signal,
+        // First request in a new area → engine builds it; show a "preparing…"
+        // state while we poll (only if this request wasn't already superseded).
+        onBuilding: () => {
+          if (abortRef.current === controller) setRouteStatus('building');
+        },
       });
       setRouteCandidates(ranked);
       setRouteIndex(0); // show the best

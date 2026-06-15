@@ -67,7 +67,8 @@ export default function RouteForm() {
     setFeedbackGiven(liked ? 'up' : 'down');
   };
 
-  const loading = routeStatus === 'loading';
+  const building = routeStatus === 'building'; // first-time area build (cloud)
+  const loading = routeStatus === 'loading' || building;
   const hasRoute = routeStatus !== 'error' && Boolean(generatedRoute);
 
   return (
@@ -260,7 +261,13 @@ export default function RouteForm() {
         disabled={loading}
       >
         <RouteIcon size={20} />
-        {loading ? 'מחשב מסלול…' : hasRoute ? 'מסלול חדש' : 'צור מסלול'}
+        {building
+          ? 'מכינים את האזור…'
+          : loading
+            ? 'מחשב מסלול…'
+            : hasRoute
+              ? 'מסלול חדש'
+              : 'צור מסלול'}
       </button>
 
       {routeStatus === 'error' && routeError && (
