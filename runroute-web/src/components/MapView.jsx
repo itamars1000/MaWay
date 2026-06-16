@@ -3,10 +3,11 @@ import {
   MapContainer,
   TileLayer,
   Polyline,
-  CircleMarker,
+  Marker,
   useMap,
   useMapEvents,
 } from 'react-leaflet';
+import L from 'leaflet';
 import { TargetIcon, RouteIcon } from './icons.jsx';
 import { useAppState } from '../state/AppState.jsx';
 import { useSettings } from '../state/SettingsProvider.jsx';
@@ -127,6 +128,27 @@ export default function MapView({ sheetFraction }) {
   // The generated route once available; otherwise null (no fake placeholder).
   const route = useMemo(() => generatedRoute?.coords ?? null, [generatedRoute]);
 
+  // Styled map pins (teardrop SVG, colored per role, white outline + inner glyph)
+  // and the live GPS dot with a pulsing ring. Built once — stable identities.
+  const { startIcon, viaIcon, endIcon, geoIcon } = useMemo(() => {
+    const pin = (color, inner) =>
+      `<svg width="30" height="38" viewBox="0 0 30 38" xmlns="http://www.w3.org/2000/svg">` +
+      `<path d="M15 1C8 1 2.5 6.5 2.5 13.5 2.5 23 15 37 15 37S27.5 23 27.5 13.5C27.5 6.5 22 1 15 1Z" ` +
+      `fill="${color}" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>${inner}</svg>`;
+    const DOT = '<circle cx="15" cy="14" r="4.6" fill="#fff"/>';
+    const FLAG =
+      '<rect x="11" y="7.5" width="1.5" height="9.5" rx="0.7" fill="#fff"/>' +
+      '<path d="M12.8 8.2h6.4l-1.8 2.4 1.8 2.4h-6.4z" fill="#fff"/>';
+    const make = (html, size, anchor, className) =>
+      L.divIcon({ html, className, iconSize: size, iconAnchor: anchor });
+    return {
+      startIcon: make(pin('#3e9b76', DOT), [30, 38], [15, 37], 'rr-pin'),
+      viaIcon: make(pin('#4a5a6b', DOT), [30, 38], [15, 37], 'rr-pin'),
+      endIcon: make(pin('#2f3a45', FLAG), [30, 38], [15, 37], 'rr-pin'),
+      geoIcon: make('<span class="rr-geodot"></span>', [18, 18], [9, 9], 'rr-geodot-wrap'),
+    };
+  }, []);
+
   // Map "ready" once its first tiles have painted. A safety timeout flips it
   // true regardless, so we never get stuck (e.g. tiles fail to load offline).
   const [mapReady, setMapReady] = useState(false);
@@ -184,16 +206,18 @@ export default function MapView({ sheetFraction }) {
           maxZoom={tile.maxZoom}
           eventHandlers={{ load: () => setMapReady(true) }}
         />
-        {/* Route polyline — only when a real route exists (no fake placeholder). */}
+        {/* Route — only when a real route exists (no fake placeholder). Three
+            stacked lines: a white casing (pops on dark/satellite), the solid
+            mint route, and a light dashed overlay that animates a directional
+            "flow" along the path. */}
         {route && (
           <>
-            {/* Soft mint glow behind the route. */}
             <Polyline
               positions={route}
               pathOptions={{
-                color: '#2e785a',
+                color: '#ffffff',
                 weight: 9,
-                opacity: 0.18,
+                opacity: 0.95,
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
@@ -208,66 +232,58 @@ export default function MapView({ sheetFraction }) {
                 className: 'rr-route-line',
               }}
             />
+            <Polyline
+              positions={route}
+              pathOptions={{
+                color: '#eaf7f0',
+                weight: 5,
+                opacity: 0.9,
+                lineCap: 'round',
+                lineJoin: 'round',
+                dashArray: '10 16',
+                className: 'rr-route-flow',
+              }}
+            />
           </>
         )}
 
-        {/* Current location: blue dot with a white ring. */}
+        {/* Live location: blue dot with a pulsing ring. */}
         {currentPosition && (
-          <CircleMarker
-            center={[currentPosition.lat, currentPosition.lng]}
-            radius={8}
-            pathOptions={{
-              color: '#ffffff',
-              weight: 3,
-              opacity: 1,
-              fillColor: '#1d9bf0',
-              fillOpacity: 1,
-            }}
+          <Marker
+            position={[currentPosition.lat, currentPosition.lng]}
+            icon={geoIcon}
+            interactive={false}
+            keyboard={false}
           />
         )}
 
-        {/* Start point (only when it differs from the live location). */}
+        {/* Start pin (only when it differs from the live location). */}
         {!usingCurrentLocation && startPosition && (
-          <CircleMarker
-            center={[startPosition.lat, startPosition.lng]}
-            radius={7}
-            pathOptions={{
-              color: '#ffffff',
-              weight: 3,
-              opacity: 1,
-              fillColor: '#3e9b76',
-              fillOpacity: 1,
-            }}
+          <Marker
+            position={[startPosition.lat, startPosition.lng]}
+            icon={startIcon}
+            interactive={false}
+            keyboard={false}
           />
         )}
 
-        {/* Via-point the loop must pass through (slate). */}
+        {/* Via-point the loop must pass through (slate pin). */}
         {viaPoint && (
-          <CircleMarker
-            center={[viaPoint.lat, viaPoint.lng]}
-            radius={8}
-            pathOptions={{
-              color: '#ffffff',
-              weight: 3,
-              opacity: 1,
-              fillColor: '#4a5a6b',
-              fillOpacity: 1,
-            }}
+          <Marker
+            position={[viaPoint.lat, viaPoint.lng]}
+            icon={viaIcon}
+            interactive={false}
+            keyboard={false}
           />
         )}
 
-        {/* End-point for A→B (ink/charcoal). */}
+        {/* End-point for A→B (ink flag pin). */}
         {endPoint && (
-          <CircleMarker
-            center={[endPoint.lat, endPoint.lng]}
-            radius={8}
-            pathOptions={{
-              color: '#ffffff',
-              weight: 3,
-              opacity: 1,
-              fillColor: '#2f3a45',
-              fillOpacity: 1,
-            }}
+          <Marker
+            position={[endPoint.lat, endPoint.lng]}
+            icon={endIcon}
+            interactive={false}
+            keyboard={false}
           />
         )}
 
