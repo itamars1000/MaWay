@@ -84,6 +84,32 @@ body {
 .rr-route-line {
   filter: drop-shadow(0 2px 4px rgba(46, 120, 90, 0.32));
 }
+
+/* Subtle "remove route from the map" ghost button (under the result actions). */
+.clear-route {
+  margin-top: 4px;
+  width: 100%;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.clear-route:hover {
+  color: var(--ink);
+}
+.clear-route:active {
+  background: var(--field);
+}
 /* Light dashes marching along the route → a directional "flow". */
 .rr-route-flow {
   animation: rr-flow 1.1s linear infinite;

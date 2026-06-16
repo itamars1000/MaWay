@@ -19,6 +19,7 @@ import {
   ArrowDownIcon,
   BookmarkIcon,
   DownloadIcon,
+  TrashIcon,
 } from './icons.jsx';
 
 /** The form shown under the "מסלול" (Route) tab. */
@@ -34,6 +35,7 @@ export default function RouteForm() {
     routeError,
     routeCount,
     showNextRoute,
+    clearRoute,
     // start field
     startLocation,
     setStartLocation,
@@ -364,6 +366,20 @@ export default function RouteForm() {
               </>
             )}
           </div>
+
+          {/* Remove the shown route from the map. */}
+          <button
+            type="button"
+            className="clear-route"
+            onClick={() => {
+              setFeedbackGiven(null);
+              setJustSaved(false);
+              clearRoute();
+            }}
+          >
+            <TrashIcon />
+            מחק מסלול מהמפה
+          </button>
         </>
       )}
     </div>

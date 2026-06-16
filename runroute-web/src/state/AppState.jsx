@@ -159,6 +159,14 @@ export function AppStateProvider({ children }) {
       setRouteIndex((i) => (i + 1) % routeCandidates.length);
     };
 
+    // Remove the shown route from the map (back to a clean slate).
+    const clearRoute = () => {
+      setRouteCandidates([]);
+      setRouteIndex(0);
+      setRouteStatus('idle');
+      setRouteError(null);
+    };
+
     // ---- Saved routes ----------------------------------------------------
     // Save the currently-shown route to the device (auto-named).
     const saveCurrentRoute = () => {
@@ -276,6 +284,7 @@ export function AppStateProvider({ children }) {
       routeIndex,
       setRouteIndex,
       showNextRoute,
+      clearRoute,
       routeCount: routeCandidates.length,
       routeStatus,
       setRouteStatus,
