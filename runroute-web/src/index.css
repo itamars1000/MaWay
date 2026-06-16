@@ -127,6 +127,94 @@ body {
   }
 }
 
+/* "Building a new area" panel — shown in the route form (in place of the CTA)
+   while the cloud builds an uncovered area's map for the first time. Reuses the
+   .map-spinner; mint palette so it reads as in-progress, not an error. */
+.building-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  background: var(--mint-soft);
+  border: 1px solid #d6efe1;
+}
+.building-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.building-spinner {
+  width: 22px;
+  height: 22px;
+  border-width: 3px;
+}
+.building-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--slate-deep);
+}
+.building-progress {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: #d6efe1;
+  overflow: hidden;
+}
+.building-progress__bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--mint), var(--mint-deep));
+  /* transform-based so the sweep direction is the same in RTL. */
+  animation: building-indeterminate 1.4s ease-in-out infinite;
+}
+@keyframes building-indeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+.building-step {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mint-deep);
+  animation: building-fade 0.4s ease;
+}
+@keyframes building-fade {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.building-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.building-time {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--slate);
+}
+.building-note {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
 .recenter-fab {
   position: absolute;
   right: 16px; /* conventional bottom-right (physical, not RTL-flipped) */

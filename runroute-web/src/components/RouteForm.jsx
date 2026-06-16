@@ -10,6 +10,7 @@ import { useRouteGenerator } from '../hooks/useRouteGenerator.js';
 import { sendFeedback } from '../lib/engine.js';
 import { downloadGpx } from '../lib/gpx.js';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
+import BuildingPanel from './BuildingPanel.jsx';
 import {
   LoopIcon,
   AbIcon,
@@ -249,26 +250,25 @@ export default function RouteForm() {
         </div>
       )}
 
-      {/* CTA */}
-      <button
-        className="action-button"
-        type="button"
-        onClick={() => {
-          setFeedbackGiven(null);
-          setJustSaved(false);
-          generate();
-        }}
-        disabled={loading}
-      >
-        <RouteIcon size={20} />
-        {building
-          ? 'מכינים את האזור…'
-          : loading
-            ? 'מחשב מסלול…'
-            : hasRoute
-              ? 'מסלול חדש'
-              : 'צור מסלול'}
-      </button>
+      {/* CTA — while a brand-new area builds in the cloud, the rich building
+          panel replaces the (otherwise frozen-looking) disabled button. */}
+      {building ? (
+        <BuildingPanel />
+      ) : (
+        <button
+          className="action-button"
+          type="button"
+          onClick={() => {
+            setFeedbackGiven(null);
+            setJustSaved(false);
+            generate();
+          }}
+          disabled={loading}
+        >
+          <RouteIcon size={20} />
+          {loading ? 'מחשב מסלול…' : hasRoute ? 'מסלול חדש' : 'צור מסלול'}
+        </button>
+      )}
 
       {routeStatus === 'error' && routeError && (
         <p className="route-error">{routeError}</p>
