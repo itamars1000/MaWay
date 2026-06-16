@@ -215,10 +215,18 @@ body {
   color: var(--muted);
 }
 
-.recenter-fab {
+/* Stacked map controls: route-fit (top) + my-location (bottom), floating just
+   above the sheet edge at the conventional bottom-right (physical, not RTL). */
+.map-fabs {
   position: absolute;
-  right: 16px; /* conventional bottom-right (physical, not RTL-flipped) */
+  right: 16px;
   z-index: 5; /* above the map, below the loading overlay (6) */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: bottom 0.25s ease;
+}
+.recenter-fab {
   width: 50px;
   height: 50px;
   border: 1px solid var(--hair);
@@ -229,10 +237,14 @@ body {
   place-items: center;
   box-shadow: 0 4px 16px rgba(47, 58, 69, 0.22);
   cursor: pointer;
-  transition: bottom 0.25s ease, transform 0.12s ease;
+  transition: transform 0.12s ease;
 }
 .recenter-fab:active {
   transform: scale(0.94);
+}
+/* The route-fit button gets the mint route accent so the two read distinctly. */
+.recenter-fab.route-fab {
+  color: var(--mint-deep);
 }
 .recenter-fab.locating {
   animation: fab-pulse 1s ease-in-out infinite;

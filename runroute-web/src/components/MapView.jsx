@@ -7,7 +7,7 @@ import {
   useMap,
   useMapEvents,
 } from 'react-leaflet';
-import { TargetIcon } from './icons.jsx';
+import { TargetIcon, RouteIcon } from './icons.jsx';
 import { useAppState } from '../state/AppState.jsx';
 import { useSettings } from '../state/SettingsProvider.jsx';
 import { useGeolocation } from '../hooks/useGeolocation.js';
@@ -22,20 +22,36 @@ const DEFAULT_LATLNG = [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng];
  * live GPS fix or a chosen address) as soon as one is known — so the map
  * follows the user instead of sitting on a default location.
  */
-function MapController({ route, center, sheetFraction, recenterSignal, onCentered }) {
+function MapController({
+  route,
+  center,
+  sheetFraction,
+  locateSignal,
+  locateTarget,
+  fitSignal,
+  onCentered,
+}) {
   const map = useMap();
   // Stable dependency for the route geometry (null when no route yet).
   const routeKey = route ? route.map((p) => p.join(',')).join('|') : null;
 
+  // Fit the route into view, padded to clear the header and the sheet.
+  const fitRoute = () => {
+    const bottomPx = sheetFraction * map.getSize().y;
+    map.flyToBounds(route, {
+      paddingTopLeft: [24, 90], // clear the floating header
+      paddingBottomRight: [24, bottomPx + 24], // clear the sheet
+      duration: 0.4,
+    });
+  };
+
+  // Auto: fit a freshly generated route; otherwise center on the start point as
+  // soon as it's known (covered by the loading overlay on first load). Also
+  // re-runs when the sheet resizes so the content stays visible above it.
   useEffect(() => {
     if (!map) return;
     if (route && route.length) {
-      const bottomPx = sheetFraction * map.getSize().y;
-      map.flyToBounds(route, {
-        paddingTopLeft: [24, 90], // clear the floating header
-        paddingBottomRight: [24, bottomPx + 24], // clear the sheet
-        duration: 0.4,
-      });
+      fitRoute();
     } else if (center) {
       // Jump straight to the location with NO visible animation, while the
       // loading overlay still covers the map. Then signal so the overlay lifts
@@ -46,7 +62,23 @@ function MapController({ route, center, sheetFraction, recenterSignal, onCentere
       if (onCentered) onCentered();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeKey, center?.lat, center?.lng, sheetFraction, recenterSignal, map]);
+  }, [routeKey, center?.lat, center?.lng, sheetFraction, map]);
+
+  // Manual "my location": fly to the user's position regardless of any route.
+  useEffect(() => {
+    if (!map || !locateSignal || !locateTarget) return;
+    map.flyTo([locateTarget.lat, locateTarget.lng], Math.max(map.getZoom(), 15), {
+      duration: 0.4,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locateSignal]);
+
+  // Manual "show route": re-fit the current route's bounds.
+  useEffect(() => {
+    if (!map || !fitSignal || !(route && route.length)) return;
+    fitRoute();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitSignal]);
 
   // Leaflet needs a nudge once its container has its final size.
   useEffect(() => {
@@ -89,7 +121,8 @@ export default function MapView({ sheetFraction }) {
   const { mapStyle } = useSettings();
   const tile = getStyle(mapStyle);
   const { request } = useGeolocation();
-  const [recenterSignal, setRecenterSignal] = useState(0);
+  const [locateSignal, setLocateSignal] = useState(0);
+  const [fitSignal, setFitSignal] = useState(0);
 
   // The generated route once available; otherwise null (no fake placeholder).
   const route = useMemo(() => generatedRoute?.coords ?? null, [generatedRoute]);
@@ -123,10 +156,15 @@ export default function MapView({ sheetFraction }) {
   const showOverlay = !route && (!mapReady || locating || awaitingCenter);
   const overlayText = locating || awaitingCenter ? 'מאתר מיקום…' : 'טוען מפה…';
 
-  const recenter = () => {
+  // Where "my location" jumps to: the live GPS dot if we have one, else the
+  // chosen start point.
+  const locateTarget = currentPosition ?? effectiveStart;
+
+  const goToMyLocation = () => {
     request(); // refresh the GPS fix
-    setRecenterSignal((s) => s + 1); // re-fit the map
+    setLocateSignal((s) => s + 1); // fly to it
   };
+  const showRoute = () => setFitSignal((s) => s + 1); // fit the route bounds
 
   return (
     <div className={`map-layer ${pickingMode ? 'picking-via' : ''}`}>
@@ -237,7 +275,9 @@ export default function MapView({ sheetFraction }) {
           route={route}
           center={effectiveStart}
           sheetFraction={sheetFraction}
-          recenterSignal={recenterSignal}
+          locateSignal={locateSignal}
+          locateTarget={locateTarget}
+          fitSignal={fitSignal}
           onCentered={() => {
             // Map view is already set; give the destination tiles a beat to
             // paint under the overlay before lifting it.
@@ -256,14 +296,34 @@ export default function MapView({ sheetFraction }) {
         </div>
       )}
 
-      <button
-        className={`recenter-fab ${geoStatus === 'locating' ? 'locating' : ''}`}
+      {/* Map controls, floating just above the sheet's top edge: a button to
+          fit the route (only when one exists) and a button to jump to the
+          user's own location. */}
+      <div
+        className="map-fabs"
         style={{ bottom: `calc(${sheetFraction * 100}% + 12px)` }}
-        onClick={recenter}
-        aria-label="מרכז מיקום"
       >
-        <TargetIcon />
-      </button>
+        {route && (
+          <button
+            className="recenter-fab route-fab"
+            type="button"
+            onClick={showRoute}
+            aria-label="הצג את המסלול"
+            title="הצג את המסלול"
+          >
+            <RouteIcon size={22} />
+          </button>
+        )}
+        <button
+          className={`recenter-fab ${geoStatus === 'locating' ? 'locating' : ''}`}
+          type="button"
+          onClick={goToMyLocation}
+          aria-label="מרכז על המיקום שלי"
+          title="המיקום שלי"
+        >
+          <TargetIcon />
+        </button>
+      </div>
     </div>
   );
 }
