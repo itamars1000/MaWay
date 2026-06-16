@@ -196,13 +196,19 @@ def write_marker(key: str, payload: dict) -> None:
     )
 
 
-def load_ondemand(key: str) -> "Region | None":
-    """Load a ready on-demand tile pickle into the LRU (or return it cached).
-    Returns None if the pickle isn't present (e.g. still building / failed)."""
+def load_ondemand_file(file: str) -> "Region | None":
+    """Load a ready on-demand tile pickle (by its full object name) into the LRU,
+    or return it cached. None if the pickle isn't present (still building/failed)."""
     try:
-        return _get_region(f"{_ONDEMAND_PREFIX}{key}.pkl")
+        return _get_region(file)
     except Exception:  # noqa: BLE001 — pkl missing/unreadable
         return None
+
+
+def load_ondemand(key: str) -> "Region | None":
+    """Legacy helper: load the coord-named tile for `key` (older tiles that
+    predate the readable filenames recorded in the marker's `file`)."""
+    return load_ondemand_file(f"{_ONDEMAND_PREFIX}{key}.pkl")
 
 
 def reload():

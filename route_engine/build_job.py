@@ -28,6 +28,7 @@ import argparse
 import json
 import os
 import pickle
+import re
 import time
 
 from . import graph_store, ondemand
@@ -38,12 +39,31 @@ def _now() -> float:
     return time.time()
 
 
+def _slugify(text: str) -> str:
+    """A filesystem/bucket-safe slug, e.g. 'Île-de-France' -> 'le-de-france'."""
+    s = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+    return s or "area"
+
+
 def build_ondemand_tile(key: str, lat: float, lng: float, distance_m: float,
                         span_m: float | None = None, name: str | None = None) -> dict:
     """Build the loop-sized tile for `key` and upload it + a 'ready' marker.
     On failure, record an 'error' marker (so the server stops polling) and
-    re-raise. Mirrors ondemand.get_or_build's tile shape exactly."""
-    label = name or f"area {lat:.3f},{lng:.3f}"
+    re-raise. Mirrors ondemand.get_or_build's tile shape exactly.
+
+    The tile is stored under a recognisable name derived from the covering
+    Geofabrik extract (e.g. ondemand/berlin_52.52_13.4_v7.pkl) so the bucket is
+    browsable; the readable filename is recorded in the marker so the server can
+    find it. The status marker itself stays at the deterministic coord-key path
+    so the server can locate it from lat/lng alone."""
+    from . import extracts
+
+    res = extracts.resolve_extract(lat, lng)  # cheap; index is cached by the build
+    region_name = res[0] if res else None
+    label = name or (f"{region_name} ({lat:.3f},{lng:.3f})" if region_name
+                     else f"area {lat:.3f},{lng:.3f}")
+    file = f"{graph_store._ONDEMAND_PREFIX}{_slugify(region_name)}_{key}.pkl"
+
     graph_store.write_marker(key, {"status": "building", "name": label,
                                    "updated_at": _now()})
     try:
@@ -56,12 +76,11 @@ def build_ondemand_tile(key: str, lat: float, lng: float, distance_m: float,
         data = build_region_data(lat, lng, distance_m, place=label, bbox=bbox,
                                  consolidate=False)
         buf = pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
-        graph_store._write_bytes(f"{graph_store._ONDEMAND_PREFIX}{key}.pkl", buf,
-                                 content_type="application/octet-stream")
+        graph_store._write_bytes(file, buf, content_type="application/octet-stream")
         graph_store.write_marker(key, {"status": "ready", "name": label,
-                                       "bbox": data["bbox"], "size": len(buf),
-                                       "updated_at": _now()})
-        print(f"ondemand tile {key} ready -> {len(buf)/1e6:.1f} MB")
+                                       "file": file, "bbox": data["bbox"],
+                                       "size": len(buf), "updated_at": _now()})
+        print(f"ondemand tile {key} ready -> {file} ({len(buf)/1e6:.1f} MB)")
         return data
     except Exception as exc:  # noqa: BLE001 — record + surface for the Job log
         graph_store.write_marker(key, {"status": "error", "name": label,

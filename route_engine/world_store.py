@@ -78,22 +78,33 @@ def enabled() -> bool:
     return bool(graph_store._BUCKET and _BUILD_JOB and _REGION and _project())
 
 
+# Remember each area's resolved tile filename so repeat requests hit the
+# in-memory LRU directly, without re-reading the marker every time.
+_FILE_BY_KEY: dict[str, str] = {}
+
+
 def get_or_trigger(lat, lng, distance_m, span_m=None):
     """Return a ready on-demand Region for (lat,lng), or trigger a build and
     raise Building. Re-raises RuntimeError if a recent build failed."""
     key, radius, cell_lat, cell_lng = ondemand.tile_key(lat, lng, distance_m, span_m=span_m)
 
-    region = graph_store.load_ondemand(key)  # cached or already-built pkl
-    if region is not None:
-        return region
+    cached_file = _FILE_BY_KEY.get(key)
+    if cached_file:  # known tile → straight to the LRU (no marker read)
+        region = graph_store.load_ondemand_file(cached_file)
+        if region is not None:
+            return region
 
     marker = graph_store.read_marker(key)
     if marker:
         status = marker.get("status")
         age = time.time() - float(marker.get("updated_at", 0) or 0)
         if status == "ready":
-            region = graph_store.load_ondemand(key)  # marker ahead of pkl? retry load
+            # The Job records the tile's (readable) filename in the marker; fall
+            # back to the legacy coord-named path for tiles built before that.
+            file = marker.get("file") or f"{graph_store._ONDEMAND_PREFIX}{key}.pkl"
+            region = graph_store.load_ondemand_file(file)
             if region is not None:
+                _FILE_BY_KEY[key] = file
                 return region
         elif status == "building" and age < _BUILD_TIMEOUT_S:
             raise Building(key)  # a build is already in flight — just keep polling
