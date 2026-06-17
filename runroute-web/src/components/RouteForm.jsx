@@ -267,7 +267,7 @@ export default function RouteForm() {
         <BuildingPanel />
       ) : (
         <button
-          className="action-button"
+          className={`action-button ${loading ? 'loading' : ''}`}
           type="button"
           onClick={() => {
             setFeedbackGiven(null);
@@ -276,7 +276,11 @@ export default function RouteForm() {
           }}
           disabled={loading}
         >
-          <RouteIcon size={20} />
+          {loading ? (
+            <span className="btn-spinner" aria-hidden="true" />
+          ) : (
+            <RouteIcon size={20} />
+          )}
           {loading ? t('cta.loading') : hasRoute ? t('cta.new') : t('cta.create')}
         </button>
       )}
