@@ -13,10 +13,15 @@ import json
 import os
 import shutil
 import subprocess
+import time
 
 import requests
 import shapely
 from shapely.geometry import Point, shape
+
+_DOWNLOAD_RETRIES = 4
+_DOWNLOAD_RETRY_WAIT = 30  # seconds between attempts (transient CDN blips)
+_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 _DIR = os.path.dirname(__file__)
 _CACHE = os.path.join(_DIR, "regions", "_cache")
@@ -67,18 +72,43 @@ def resolve_extract(lat: float, lng: float):
 
 
 def ensure_extract(ext_id: str, pbf_url: str) -> str:
-    """Download the extract (cached on disk) and return its local path."""
+    """Download the extract (cached on disk) and return its local path.
+    Retries on transient CDN errors (502/503/504) with a fixed backoff."""
     os.makedirs(_CACHE, exist_ok=True)
     path = os.path.join(_CACHE, f"{ext_id.replace('/', '_')}.osm.pbf")
-    if not os.path.exists(path):
-        with requests.get(pbf_url, stream=True, timeout=600) as r:
-            r.raise_for_status()
-            tmp = path + ".part"
-            with open(tmp, "wb") as f:
-                for chunk in r.iter_content(chunk_size=1 << 20):
-                    f.write(chunk)
+    if os.path.exists(path):
+        return path
+    tmp = path + ".part"
+    last_err: Exception | None = None
+    for attempt in range(_DOWNLOAD_RETRIES):
+        if attempt > 0:
+            print(f"extracts: retrying download (attempt {attempt + 1}/{_DOWNLOAD_RETRIES}) in {_DOWNLOAD_RETRY_WAIT}s …")
+            time.sleep(_DOWNLOAD_RETRY_WAIT)
+        try:
+            with requests.get(pbf_url, stream=True, timeout=600) as r:
+                if r.status_code in _RETRYABLE_STATUS:
+                    last_err = requests.HTTPError(
+                        f"{r.status_code} retryable error for {pbf_url}", response=r
+                    )
+                    print(f"extracts: got {r.status_code} from Geofabrik — will retry")
+                    continue
+                r.raise_for_status()
+                with open(tmp, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=1 << 20):
+                        f.write(chunk)
             os.replace(tmp, path)
-    return path
+            return path
+        except requests.HTTPError:
+            raise  # non-retryable HTTP errors propagate immediately
+        except Exception as exc:  # noqa: BLE001
+            last_err = exc
+            print(f"extracts: download error ({exc}) — will retry")
+    # Clean up partial file before raising
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
+    raise last_err or RuntimeError(f"Failed to download {pbf_url} after {_DOWNLOAD_RETRIES} attempts")
 
 
 def crop_extract(pbf_path: str, bbox, out_path: str) -> str:
