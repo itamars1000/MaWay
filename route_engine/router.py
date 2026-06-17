@@ -65,6 +65,13 @@ SCORE_W_DIST = 0.38
 SCORE_W_PLEASANT = 0.12
 SCORE_W_OFFROAD = 0.6      # extra badness per unit off-road fraction (fixed)
 SCORE_W_OVERLAP = 0.5      # extra badness per unit self-overlap (fixed)
+# Extra badness per unit of the route that runs ALONG a busy road. Busy roads
+# are kept CHEAP in the search (continuous → low-turn loops), so the straightest
+# loop often hugs an arterial; this fixed penalty tips selection toward quieter
+# streets among the routes that already meet the turn cap. Modest — running some
+# main road is fine; we just avoid loops dominated by it. (0 for legacy tiles
+# with no `busy` array → no behaviour change until they rebuild.)
+SCORE_W_BUSY = 0.35
 MAX_TURNS_PER_KM = 3.0     # hard quality cap returned to the client
 # Max fraction of a returned route that may run on unpaved/off-road ways. Routes
 # above this are rejected when a paved alternative exists (graceful fallback).
@@ -232,6 +239,10 @@ def _add_quality_fracs(region, full, feat):
         sum(seg_len[i] for i in full if region.scenic[i]) / total, 3)
     feat["properties"]["offroad_frac"] = round(
         sum(seg_len[i] for i in full if region.offroad[i]) / total, 3)
+    busy = getattr(region, "busy", None)
+    if busy is not None:
+        feat["properties"]["busy_frac"] = round(
+            sum(seg_len[i] for i in full if busy[i]) / total, 3)
     feat["properties"]["overlap_frac"] = round(
         _overlap_frac(_feature_points(feat)), 3)
     return feat
@@ -528,9 +539,10 @@ def _score(feature, target_m):
         + w["pleasant"] * f["pleasant"]
         + w.get("scenic", 0.0) * f["scenic"]
         # Fixed (not learned) so among qualifying routes the least off-road,
-        # roundest loop wins.
+        # least busy-road, roundest loop wins.
         + SCORE_W_OFFROAD * feature["properties"].get("offroad_frac", 0.0)
         + SCORE_W_OVERLAP * feature["properties"].get("overlap_frac", 0.0)
+        + SCORE_W_BUSY * feature["properties"].get("busy_frac", 0.0)
     )
 
 

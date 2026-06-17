@@ -54,6 +54,12 @@ class Region:
         self.offroad = np.asarray(
             data.get("offroad", [False] * len(data["coords"])), dtype=bool
         )
+        # Segments running ALONG a busy road (primary/secondary/trunk) — the
+        # scorer prefers quieter routes among those that meet the turn cap.
+        # Default False for older pickles built before this array existed.
+        self.busy = np.asarray(
+            data.get("busy", [False] * len(data["coords"])), dtype=bool
+        )
         # Scenic "destination" anchors (lat,lng) the router aims candidates at.
         anchors = data.get("scenic_anchors") or []
         self.anchor_lat = np.asarray([a[0] for a in anchors], dtype=float)
