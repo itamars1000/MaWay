@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { searchAddress } from '../lib/geocode.js';
+import { useT } from '../state/SettingsProvider.jsx';
 import { LocationIcon, TargetIcon, FlagIcon } from './icons.jsx';
 
 const DEBOUNCE_MS = 400;
@@ -7,7 +8,7 @@ const DEBOUNCE_MS = 400;
 /**
  * Address input with Nominatim autocomplete — used for BOTH the start and the
  * A→B end field. Controlled via props:
- *   value        current text
+ *   value        current text (already display-resolved by the parent)
  *   onChange     (text) => void
  *   onPick       ({ label, lat, lng }) => void   (selected a suggestion)
  *   onUseCurrent () => void | undefined          (shows the "use my location" row)
@@ -20,16 +21,15 @@ export default function AddressAutocomplete({
   onPick,
   onUseCurrent,
   committedInit = '',
-  placeholder = 'חפש כתובת',
+  placeholder,
   variant = 'start',
 }) {
+  const { t } = useT();
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const wrapRef = useRef(null);
   const abortRef = useRef(null);
-  // The last value set programmatically (default label or a picked address).
-  // We never search while the field equals it — only when the user types.
   const committedRef = useRef(committedInit);
 
   // Debounced search whenever the typed text changes.
@@ -70,7 +70,7 @@ export default function AddressAutocomplete({
   }, []);
 
   const choose = (item) => {
-    committedRef.current = item.label; // don't re-search the label we just set
+    committedRef.current = item.label;
     onPick(item);
     setResults([]);
     setOpen(false);
@@ -92,7 +92,7 @@ export default function AddressAutocomplete({
         <input
           className="loc-input"
           value={value}
-          placeholder={placeholder}
+          placeholder={placeholder ?? t('addr.placeholder')}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => results.length && setOpen(true)}
         />
@@ -100,8 +100,8 @@ export default function AddressAutocomplete({
           <button
             type="button"
             className="loc-action"
-            title="השתמש במיקום הנוכחי"
-            aria-label="השתמש במיקום הנוכחי"
+            title={t('addr.useCurrent')}
+            aria-label={t('addr.useCurrent')}
             onClick={chooseCurrent}
           >
             <TargetIcon size={20} />
@@ -114,12 +114,12 @@ export default function AddressAutocomplete({
           {onUseCurrent && (
             <li className="suggestion suggestion--current" onClick={chooseCurrent}>
               <span className="suggestion-pin">📍</span>
-              השתמש במיקום הנוכחי
+              {t('addr.useCurrent')}
             </li>
           )}
-          {loading && <li className="suggestion suggestion--muted">מחפש…</li>}
+          {loading && <li className="suggestion suggestion--muted">{t('addr.searching')}</li>}
           {!loading && results.length === 0 && (
-            <li className="suggestion suggestion--muted">לא נמצאו תוצאות</li>
+            <li className="suggestion suggestion--muted">{t('addr.noResults')}</li>
           )}
           {results.map((item, i) => (
             <li

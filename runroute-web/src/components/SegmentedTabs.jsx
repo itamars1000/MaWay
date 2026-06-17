@@ -1,16 +1,17 @@
 import { useAppState, TABS } from '../state/AppState.jsx';
+import { useT } from '../state/SettingsProvider.jsx';
 
 /**
  * Two-option segmented control bound to the active tab.
- * "מסלול" (Route) / "שמורים" (Saved). The active pill slides between options.
+ * Route / Saved. The active pill slides between options.
  */
 export default function SegmentedTabs() {
   const { currentTab, setCurrentTab } = useAppState();
+  const { t } = useT();
   const isRoute = currentTab === TABS.ROUTE;
 
   return (
     <div className="segmented">
-      {/* Sliding active pill. In RTL, "route" is the leading (right) side. */}
       <span
         className="segmented-thumb"
         style={{ transform: isRoute ? 'translateX(0)' : 'translateX(-100%)' }}
@@ -19,13 +20,13 @@ export default function SegmentedTabs() {
         className={`segment ${isRoute ? 'active' : ''}`}
         onClick={() => setCurrentTab(TABS.ROUTE)}
       >
-        מסלול
+        {t('tabs.route')}
       </button>
       <button
         className={`segment ${!isRoute ? 'active' : ''}`}
         onClick={() => setCurrentTab(TABS.SAVED)}
       >
-        שמורים
+        {t('tabs.saved')}
       </button>
     </div>
   );

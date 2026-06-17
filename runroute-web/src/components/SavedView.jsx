@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAppState, ROUTE_TYPES } from '../state/AppState.jsx';
+import { useT } from '../state/SettingsProvider.jsx';
 import { downloadGpx } from '../lib/gpx.js';
 import SavedEmptyState from './SavedEmptyState.jsx';
 import {
@@ -13,6 +14,7 @@ import {
 /** One saved-route card. */
 function SavedCard({ item }) {
   const { openSavedRoute, deleteSavedRoute, renameSavedRoute } = useAppState();
+  const { t } = useT();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item.name);
 
@@ -51,9 +53,9 @@ function SavedCard({ item }) {
           <div className="saved-name">{item.name}</div>
         )}
         <div className="saved-meta">
-          <span>{item.distanceKm.toFixed(1)} ק״מ</span>
-          {item.ascentM != null && <span>↑ {item.ascentM} מ׳</span>}
-          {item.descentM != null && <span>↓ {item.descentM} מ׳</span>}
+          <span>{item.distanceKm.toFixed(1)} {t('units.km')}</span>
+          {item.ascentM != null && <span>↑ {item.ascentM} m</span>}
+          {item.descentM != null && <span>↓ {item.descentM} m</span>}
           {item.scenicFrac > 0 && <span>🌊 {Math.round(item.scenicFrac * 100)}%</span>}
         </div>
       </div>
@@ -62,8 +64,8 @@ function SavedCard({ item }) {
         <button
           type="button"
           className="saved-act"
-          title="ערוך שם"
-          aria-label="ערוך שם"
+          title={t('saved.editName')}
+          aria-label={t('saved.editName')}
           onClick={() => {
             setDraft(item.name);
             setEditing(true);
@@ -74,8 +76,8 @@ function SavedCard({ item }) {
         <button
           type="button"
           className="saved-act"
-          title="ייצוא GPX"
-          aria-label="ייצוא GPX"
+          title={t('saved.exportGpx')}
+          aria-label={t('saved.exportGpx')}
           onClick={() => downloadGpx(item)}
         >
           <DownloadIcon />
@@ -83,8 +85,8 @@ function SavedCard({ item }) {
         <button
           type="button"
           className="saved-act saved-act--danger"
-          title="מחק"
-          aria-label="מחק"
+          title={t('saved.delete')}
+          aria-label={t('saved.delete')}
           onClick={() => deleteSavedRoute(item.id)}
         >
           <TrashIcon />
@@ -94,7 +96,7 @@ function SavedCard({ item }) {
   );
 }
 
-/** The "שמורים" tab: saved-route cards, or the empty state. */
+/** The Saved tab: saved-route cards, or the empty state. */
 export default function SavedView() {
   const { savedRoutes } = useAppState();
   if (!savedRoutes.length) return <SavedEmptyState />;

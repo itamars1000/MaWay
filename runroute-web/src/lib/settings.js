@@ -3,6 +3,7 @@
 import { DEFAULT_MAP_STYLE } from './mapStyles.js';
 
 export const MAP_STYLE_KEY = 'maway:mapStyle';
+export const LANG_KEY = 'maway:lang';
 
 /** Persisted basemap style id (validated by getStyle on use). */
 export function getMapStyleId() {
@@ -16,6 +17,23 @@ export function getMapStyleId() {
 export function setMapStyleStored(id) {
   try {
     localStorage.setItem(MAP_STYLE_KEY, id);
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
+/** Persisted UI language ('he' | 'en'). Defaults to Hebrew. */
+export function getLang() {
+  try {
+    return localStorage.getItem(LANG_KEY) || 'he';
+  } catch {
+    return 'he';
+  }
+}
+
+export function setLangStored(lang) {
+  try {
+    localStorage.setItem(LANG_KEY, lang);
   } catch {
     /* ignore storage errors */
   }

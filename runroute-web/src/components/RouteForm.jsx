@@ -5,7 +5,9 @@ import {
   MIN_DISTANCE,
   MAX_DISTANCE,
   CURRENT_LOCATION_LABEL,
+  MAP_POINT_LABEL,
 } from '../state/AppState.jsx';
+import { useT } from '../state/SettingsProvider.jsx';
 import { useRouteGenerator } from '../hooks/useRouteGenerator.js';
 import { sendFeedback } from '../lib/engine.js';
 import { downloadGpx } from '../lib/gpx.js';
@@ -22,7 +24,7 @@ import {
   TrashIcon,
 } from './icons.jsx';
 
-/** The form shown under the "מסלול" (Route) tab. */
+/** The form shown under the "Route" tab. */
 export default function RouteForm() {
   const {
     routeType,
@@ -56,6 +58,7 @@ export default function RouteForm() {
     justSaved,
     setJustSaved,
   } = useAppState();
+  const { t, lang } = useT();
   const { generate } = useRouteGenerator();
   const [feedbackGiven, setFeedbackGiven] = useState(null); // 'up' | 'down' | null
 
@@ -70,15 +73,25 @@ export default function RouteForm() {
     setFeedbackGiven(liked ? 'up' : 'down');
   };
 
-  const building = routeStatus === 'building'; // first-time area build (cloud)
+  const building = routeStatus === 'building';
   const loading = routeStatus === 'loading' || building;
   const hasRoute = routeStatus !== 'error' && Boolean(generatedRoute);
+
+  // Resolve sentinel values to translated display labels.
+  const startDisplay =
+    startLocation === CURRENT_LOCATION_LABEL
+      ? t('location.current')
+      : startLocation === MAP_POINT_LABEL
+      ? t('location.mapPoint')
+      : startLocation;
+  const endDisplay =
+    endLocation === MAP_POINT_LABEL ? t('location.mapPoint') : endLocation;
 
   return (
     <div className="route-form">
       {/* route type */}
       <div>
-        <span className="section-label">סוג מסלול</span>
+        <span className="section-label">{t('form.routeType')}</span>
         <div className="pill-row">
           <button
             type="button"
@@ -86,7 +99,7 @@ export default function RouteForm() {
             onClick={() => setRouteType(ROUTE_TYPES.LOOP)}
           >
             <LoopIcon />
-            <span>סיבוב</span>
+            <span>{t('form.loop')}</span>
           </button>
           <button
             type="button"
@@ -101,25 +114,26 @@ export default function RouteForm() {
 
       {/* start location */}
       <div>
-        <span className="section-label">נקודת התחלה</span>
+        <span className="section-label">{t('form.startPoint')}</span>
+        {/*
+          key forces a remount when the language changes while the sentinel is
+          active — so committedInit refreshes to the new translated label.
+        */}
         <AddressAutocomplete
+          key={startLocation === CURRENT_LOCATION_LABEL ? `start-${lang}` : 'start'}
           variant="start"
-          value={startLocation}
+          value={startDisplay}
           onChange={setStartLocation}
           onPick={selectAddress}
           onUseCurrent={useCurrentLocationAsStart}
-          committedInit={CURRENT_LOCATION_LABEL}
-          placeholder="חפש כתובת או נקודת התחלה"
+          committedInit={startDisplay}
+          placeholder={t('form.startPlaceholder')}
         />
         {geoStatus === 'denied' && (
-          <span className="geo-hint">
-            הגישה למיקום נחסמה — חפש כתובת ידנית או אפשר מיקום בדפדפן.
-          </span>
+          <span className="geo-hint">{t('form.geoDenied')}</span>
         )}
         {geoStatus === 'unavailable' && (
-          <span className="geo-hint">
-            מיקום אינו זמין (נדרש חיבור מאובטח) — חפש כתובת ידנית.
-          </span>
+          <span className="geo-hint">{t('form.geoUnavailable')}</span>
         )}
         <button
           type="button"
@@ -127,22 +141,20 @@ export default function RouteForm() {
           style={{ marginTop: 8 }}
           onClick={() => setPickingMode((m) => (m === 'start' ? null : 'start'))}
         >
-          {pickingMode === 'start'
-            ? 'הקש על המפה לבחירת ההתחלה…'
-            : '📍 בחר התחלה על המפה'}
+          {pickingMode === 'start' ? t('form.tapMapStart') : t('form.pickStart')}
         </button>
       </div>
 
-      {/* end point (A→B mode): address search OR a tapped map point */}
+      {/* end point (A→B mode) */}
       {routeType === ROUTE_TYPES.ONE_WAY && (
         <div>
-          <span className="section-label">נקודת סיום</span>
+          <span className="section-label">{t('form.endPoint')}</span>
           <AddressAutocomplete
             variant="end"
-            value={endLocation}
+            value={endDisplay}
             onChange={setEndLocation}
             onPick={selectEndAddress}
-            placeholder="חפש יעד"
+            placeholder={t('form.endPlaceholder')}
           />
           <button
             type="button"
@@ -155,26 +167,26 @@ export default function RouteForm() {
             }
           >
             {endPoint
-              ? '✕ הסר יעד'
+              ? t('form.removeEnd')
               : pickingMode === 'end'
-              ? 'הקש על המפה לבחירת היעד…'
-              : '🏁 בחר יעד על המפה'}
+              ? t('form.tapMapEnd')
+              : t('form.pickEnd')}
           </button>
         </div>
       )}
 
-      {/* via-point (loop mode only): pass the loop through a tapped map point */}
+      {/* via-point (loop mode only) */}
       {routeType === ROUTE_TYPES.LOOP && (
         <div>
-          <span className="section-label">נקודת מעבר (אופציונלי)</span>
+          <span className="section-label">{t('form.viaPoint')}</span>
           {viaPoint ? (
             <div className="via-chip">
-              <span>📍 הסיבוב יעבור דרך הנקודה שבחרת</span>
+              <span>{t('form.viaConfirmed')}</span>
               <button
                 type="button"
                 className="via-clear"
                 onClick={clearViaPoint}
-                aria-label="הסר נקודת מעבר"
+                aria-label={t('form.removeViaAria')}
               >
                 ✕
               </button>
@@ -185,9 +197,7 @@ export default function RouteForm() {
               className={`via-pick ${pickingMode === 'via' ? 'armed' : ''}`}
               onClick={() => setPickingMode((m) => (m === 'via' ? null : 'via'))}
             >
-              {pickingMode === 'via'
-                ? 'הקש על המפה לבחירת נקודה…'
-                : '➕ בחר נקודת מעבר על המפה'}
+              {pickingMode === 'via' ? t('form.tapMapVia') : t('form.pickVia')}
             </button>
           )}
         </div>
@@ -196,9 +206,9 @@ export default function RouteForm() {
       {/* distance */}
       <div>
         <div className="distance-head">
-          <span className="section-label">מרחק</span>
+          <span className="section-label">{t('form.distance')}</span>
           <span className="dist-value">
-            <b>{Math.round(selectedDistance)}</b> <span>ק״מ</span>
+            <b>{Math.round(selectedDistance)}</b> <span>{t('units.km')}</span>
           </span>
         </div>
         <input
@@ -219,7 +229,7 @@ export default function RouteForm() {
         </div>
       </div>
 
-      {/* stat chips (after a route exists) */}
+      {/* stat chips */}
       {hasRoute && (
         <div className="stat-row">
           <div className="stat stat--mint">
@@ -229,7 +239,7 @@ export default function RouteForm() {
                 {generatedRoute.distanceKm.toFixed(1)}
               </span>
             </div>
-            <div className="stat-label">ק״מ</div>
+            <div className="stat-label">{t('units.km')}</div>
           </div>
           <div className="stat stat--sky">
             <div className="stat-top" style={{ color: 'var(--sky)' }}>
@@ -238,7 +248,7 @@ export default function RouteForm() {
                 {generatedRoute.ascentM ?? '—'}
               </span>
             </div>
-            <div className="stat-label">מ׳ עלייה</div>
+            <div className="stat-label">{t('stat.ascent')}</div>
           </div>
           <div className="stat stat--amber">
             <div className="stat-top" style={{ color: 'var(--amber)' }}>
@@ -247,13 +257,12 @@ export default function RouteForm() {
                 {generatedRoute.descentM ?? '—'}
               </span>
             </div>
-            <div className="stat-label">מ׳ ירידה</div>
+            <div className="stat-label">{t('stat.descent')}</div>
           </div>
         </div>
       )}
 
-      {/* CTA — while a brand-new area builds in the cloud, the rich building
-          panel replaces the (otherwise frozen-looking) disabled button. */}
+      {/* CTA */}
       {building ? (
         <BuildingPanel />
       ) : (
@@ -268,7 +277,7 @@ export default function RouteForm() {
           disabled={loading}
         >
           <RouteIcon size={20} />
-          {loading ? 'מחשב מסלול…' : hasRoute ? 'מסלול חדש' : 'צור מסלול'}
+          {loading ? t('cta.loading') : hasRoute ? t('cta.new') : t('cta.create')}
         </button>
       )}
 
@@ -280,14 +289,12 @@ export default function RouteForm() {
         <>
           {generatedRoute.belowRequested && (
             <p className="route-warn">
-              ⚠️ לא נמצא מסלול באורך המבוקש כאן — זהו הארוך ביותר (
-              {generatedRoute.distanceKm.toFixed(1)} ק״מ)
+              {t('route.warnBelow', { dist: generatedRoute.distanceKm.toFixed(1) })}
             </p>
           )}
           {generatedRoute.directOnly && (
             <p className="route-warn">
-              ℹ️ זהו המסלול הישיר ל-B ({generatedRoute.distanceKm.toFixed(1)} ק״מ)
-              — ארוך מהמבוקש
+              {t('route.warnDirect', { dist: generatedRoute.distanceKm.toFixed(1) })}
             </p>
           )}
 
@@ -301,11 +308,10 @@ export default function RouteForm() {
                 showNextRoute();
               }}
             >
-              מסלול הבא ›
+              {t('route.next')}
             </button>
           )}
 
-          {/* Save to device + export GPX */}
           <div className="result-actions">
             <button
               type="button"
@@ -314,14 +320,14 @@ export default function RouteForm() {
               disabled={justSaved}
             >
               <BookmarkIcon filled={justSaved} />
-              {justSaved ? 'נשמר' : 'שמור'}
+              {justSaved ? t('save.saved') : t('save.save')}
             </button>
             <button
               type="button"
               className="result-btn"
               onClick={() =>
                 downloadGpx({
-                  name: `MaWay ${generatedRoute.distanceKm.toFixed(1)}ק״מ`,
+                  name: `MaWay ${generatedRoute.distanceKm.toFixed(1)}${t('units.km')}`,
                   coords: generatedRoute.coords,
                 })
               }
@@ -336,22 +342,20 @@ export default function RouteForm() {
             }`}
           >
             {generatedRoute.meetsTurnTarget ? '✓ ' : ''}
-            {generatedRoute.turnsPerKm.toFixed(1)} פניות לק"מ
-            {generatedRoute.meetsTurnTarget ? '' : ' (יעד ≤3)'}
+            {t('route.turnsPerKm', { turns: generatedRoute.turnsPerKm.toFixed(1) })}
+            {generatedRoute.meetsTurnTarget ? '' : ` ${t('route.turnTarget')}`}
           </p>
           <div className="feedback-row">
             {feedbackGiven ? (
-              <span className="feedback-thanks">
-                תודה! זה ישפר את המסלולים הבאים 🙏
-              </span>
+              <span className="feedback-thanks">{t('feedback.thanks')}</span>
             ) : (
               <>
-                <span className="feedback-q">איך המסלול?</span>
+                <span className="feedback-q">{t('feedback.q')}</span>
                 <button
                   className="feedback-btn"
                   type="button"
                   onClick={() => rate(true)}
-                  aria-label="מסלול טוב"
+                  aria-label={t('feedback.goodAria')}
                 >
                   👍
                 </button>
@@ -359,7 +363,7 @@ export default function RouteForm() {
                   className="feedback-btn"
                   type="button"
                   onClick={() => rate(false)}
-                  aria-label="מסלול לא טוב"
+                  aria-label={t('feedback.badAria')}
                 >
                   👎
                 </button>
@@ -367,7 +371,6 @@ export default function RouteForm() {
             )}
           </div>
 
-          {/* Remove the shown route from the map. */}
           <button
             type="button"
             className="clear-route"
@@ -378,7 +381,7 @@ export default function RouteForm() {
             }}
           >
             <TrashIcon />
-            מחק מסלול מהמפה
+            {t('route.clear')}
           </button>
         </>
       )}

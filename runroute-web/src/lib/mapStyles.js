@@ -5,6 +5,7 @@ export const MAP_STYLES = [
   {
     id: 'voyager',
     label: 'צבעוני',
+    labelKey: 'mapStyle.voyager',
     url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
     subdomains: 'abcd',
     maxZoom: 20,
@@ -14,6 +15,7 @@ export const MAP_STYLES = [
   {
     id: 'light',
     label: 'בהיר',
+    labelKey: 'mapStyle.light',
     url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
     subdomains: 'abcd',
     maxZoom: 20,
@@ -23,6 +25,7 @@ export const MAP_STYLES = [
   {
     id: 'dark',
     label: 'כהה',
+    labelKey: 'mapStyle.dark',
     url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
     subdomains: 'abcd',
     maxZoom: 20,
@@ -32,6 +35,7 @@ export const MAP_STYLES = [
   {
     id: 'satellite',
     label: 'לוויין',
+    labelKey: 'mapStyle.satellite',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     subdomains: '',
     maxZoom: 19,

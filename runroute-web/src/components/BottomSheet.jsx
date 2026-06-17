@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppState, TABS } from '../state/AppState.jsx';
+import { useT } from '../state/SettingsProvider.jsx';
 import RouteForm from './RouteForm.jsx';
 import SavedView from './SavedView.jsx';
 
@@ -22,7 +23,9 @@ const nearestSnap = (value) =>
  * snaps to the nearest of collapsed / anchor / expanded.
  */
 export default function BottomSheet({ onFractionChange }) {
-  const { currentTab, sheetTitle } = useAppState();
+  const { currentTab } = useAppState();
+  const { t } = useT();
+  const sheetTitle = currentTab === TABS.ROUTE ? t('sheet.route') : t('sheet.saved');
   const [fraction, setFraction] = useState(SNAP.anchor);
   const [dragging, setDragging] = useState(false);
   const startY = useRef(0);

@@ -1,4 +1,4 @@
-import { useSettings } from '../state/SettingsProvider.jsx';
+import { useSettings, useT } from '../state/SettingsProvider.jsx';
 import { useAuth } from '../state/AuthProvider.jsx';
 import { useAppState } from '../state/AppState.jsx';
 import { ChevronIcon, GoogleIcon } from './icons.jsx';
@@ -7,12 +7,12 @@ import { MAP_STYLES } from '../lib/mapStyles.js';
 const APP_VERSION = '0.1.0';
 
 /**
- * Full-screen, app-style settings. Sections: account (sign in/out), preferences
- * (running pace → drives the route time estimate), data (clear saved routes),
- * and about. Opened from the header gear; closed with the back chevron.
+ * Full-screen settings. Sections: account, map style, language, data, about.
+ * Opened from the header gear; closed with the back chevron.
  */
 export default function SettingsScreen() {
-  const { open, closeSettings, mapStyle, setMapStyle } = useSettings();
+  const { open, closeSettings, mapStyle, setMapStyle, lang, setLang } = useSettings();
+  const { t } = useT();
   const { user, authEnabled, signInWithGoogle, signOut } = useAuth();
   const { savedRoutes, clearAllSavedRoutes } = useAppState();
   if (!open) return null;
@@ -24,23 +24,23 @@ export default function SettingsScreen() {
 
   const clearSaved = () => {
     if (savedCount === 0) return;
-    if (window.confirm(`למחוק את כל ${savedCount} המסלולים השמורים? פעולה זו אינה הפיכה.`)) {
+    if (window.confirm(t('settings.clearConfirm', { count: savedCount }))) {
       clearAllSavedRoutes();
     }
   };
 
   return (
-    <div className="settings-screen" role="dialog" aria-modal="true" aria-label="הגדרות">
+    <div className="settings-screen" role="dialog" aria-modal="true" aria-label={t('settings.title')}>
       <header className="settings-bar">
         <button
           type="button"
           className="settings-back"
-          aria-label="סגור"
+          aria-label={t('settings.close')}
           onClick={closeSettings}
         >
           <ChevronIcon size={22} />
         </button>
-        <h1 className="settings-heading">הגדרות</h1>
+        <h1 className="settings-heading">{t('settings.title')}</h1>
         <span className="settings-bar-spacer" />
       </header>
 
@@ -48,7 +48,7 @@ export default function SettingsScreen() {
         {/* ---- Account ---- */}
         {authEnabled && (
           <section className="settings-group">
-            <h2 className="settings-group-title">חשבון</h2>
+            <h2 className="settings-group-title">{t('settings.account')}</h2>
             {user ? (
               <div className="settings-card">
                 <div className="settings-account">
@@ -65,15 +65,15 @@ export default function SettingsScreen() {
                   </div>
                 </div>
                 <button type="button" className="settings-btn settings-btn--ghost" onClick={signOut}>
-                  התנתק
+                  {t('settings.signOut')}
                 </button>
               </div>
             ) : (
               <div className="settings-card">
-                <p className="settings-note">התחבר כדי לשמור ולסנכרן את המסלולים שלך.</p>
+                <p className="settings-note">{t('settings.signInNote')}</p>
                 <button type="button" className="settings-btn settings-btn--google" onClick={() => signInWithGoogle()}>
                   <GoogleIcon size={18} />
-                  <span>התחבר עם Google</span>
+                  <span>{t('settings.signInGoogle')}</span>
                 </button>
               </div>
             )}
@@ -82,11 +82,11 @@ export default function SettingsScreen() {
 
         {/* ---- Map ---- */}
         <section className="settings-group">
-          <h2 className="settings-group-title">מפה</h2>
+          <h2 className="settings-group-title">{t('settings.map')}</h2>
           <div className="settings-card">
             <div className="settings-row-label" style={{ marginBottom: 12 }}>
-              <span>סוג מפה</span>
-              <small>הסגנון שמוצג ברקע</small>
+              <span>{t('settings.mapType')}</span>
+              <small>{t('settings.mapTypeHint')}</small>
             </div>
             <div className="mapstyle-row">
               {MAP_STYLES.map((s) => (
@@ -97,21 +97,44 @@ export default function SettingsScreen() {
                   onClick={() => setMapStyle(s.id)}
                 >
                   <span className={`mapstyle-swatch mapstyle-swatch--${s.id}`} />
-                  <span>{s.label}</span>
+                  <span>{t(s.labelKey)}</span>
                 </button>
               ))}
             </div>
           </div>
         </section>
 
+        {/* ---- Language ---- */}
+        <section className="settings-group">
+          <h2 className="settings-group-title">{t('settings.language')}</h2>
+          <div className="settings-card">
+            <div className="lang-row">
+              <button
+                type="button"
+                className={`mapstyle-chip ${lang === 'he' ? 'active' : ''}`}
+                onClick={() => setLang('he')}
+              >
+                עברית
+              </button>
+              <button
+                type="button"
+                className={`mapstyle-chip ${lang === 'en' ? 'active' : ''}`}
+                onClick={() => setLang('en')}
+              >
+                English
+              </button>
+            </div>
+          </div>
+        </section>
+
         {/* ---- Data ---- */}
         <section className="settings-group">
-          <h2 className="settings-group-title">נתונים</h2>
+          <h2 className="settings-group-title">{t('settings.data')}</h2>
           <div className="settings-card">
             <div className="settings-row">
               <div className="settings-row-label">
-                <span>מסלולים שמורים</span>
-                <small>{savedCount} מסלולים נשמרו במכשיר הזה</small>
+                <span>{t('settings.savedRoutes')}</span>
+                <small>{t('settings.savedCount', { count: savedCount })}</small>
               </div>
               <button
                 type="button"
@@ -119,7 +142,7 @@ export default function SettingsScreen() {
                 onClick={clearSaved}
                 disabled={savedCount === 0}
               >
-                מחק הכל
+                {t('settings.deleteAll')}
               </button>
             </div>
           </div>
@@ -127,12 +150,12 @@ export default function SettingsScreen() {
 
         {/* ---- About ---- */}
         <section className="settings-group">
-          <h2 className="settings-group-title">אודות</h2>
+          <h2 className="settings-group-title">{t('settings.about')}</h2>
           <div className="settings-card">
             <div className="settings-about">
               <img className="settings-about-logo" src="/maway-logo.png" alt="MaWay" />
-              <p className="settings-note">מסלולי ריצה ישרים ורציפים.</p>
-              <p className="settings-version">גרסה {APP_VERSION}</p>
+              <p className="settings-note">{t('settings.aboutNote')}</p>
+              <p className="settings-version">{t('settings.version', { ver: APP_VERSION })}</p>
             </div>
           </div>
         </section>

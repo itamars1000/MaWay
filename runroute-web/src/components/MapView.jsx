@@ -10,7 +10,7 @@ import {
 import L from 'leaflet';
 import { TargetIcon, RouteIcon } from './icons.jsx';
 import { useAppState } from '../state/AppState.jsx';
-import { useSettings } from '../state/SettingsProvider.jsx';
+import { useSettings, useT } from '../state/SettingsProvider.jsx';
 import { useGeolocation } from '../hooks/useGeolocation.js';
 import { DEFAULT_CENTER } from '../lib/route.js';
 import { getStyle } from '../lib/mapStyles.js';
@@ -120,6 +120,7 @@ export default function MapView({ sheetFraction }) {
     placeMapPoint,
   } = useAppState();
   const { mapStyle } = useSettings();
+  const { t } = useT();
   const tile = getStyle(mapStyle);
   const { request } = useGeolocation();
   const [locateSignal, setLocateSignal] = useState(0);
@@ -176,7 +177,7 @@ export default function MapView({ sheetFraction }) {
   // on the user's location (covering the fly-to jump) or location was
   // denied/unavailable. Never shown once a route exists.
   const showOverlay = !route && (!mapReady || locating || awaitingCenter);
-  const overlayText = locating || awaitingCenter ? 'מאתר מיקום…' : 'טוען מפה…';
+  const overlayText = locating || awaitingCenter ? t('map.locating') : t('map.loading');
 
   // Where "my location" jumps to: the live GPS dot if we have one, else the
   // chosen start point.
@@ -324,8 +325,8 @@ export default function MapView({ sheetFraction }) {
             className="recenter-fab route-fab"
             type="button"
             onClick={showRoute}
-            aria-label="הצג את המסלול"
-            title="הצג את המסלול"
+            aria-label={t('map.showRoute')}
+            title={t('map.showRoute')}
           >
             <RouteIcon size={22} />
           </button>
@@ -334,8 +335,8 @@ export default function MapView({ sheetFraction }) {
           className={`recenter-fab ${geoStatus === 'locating' ? 'locating' : ''}`}
           type="button"
           onClick={goToMyLocation}
-          aria-label="מרכז על המיקום שלי"
-          title="המיקום שלי"
+          aria-label={t('map.myLocation')}
+          title={t('map.myLocationTitle')}
         >
           <TargetIcon />
         </button>

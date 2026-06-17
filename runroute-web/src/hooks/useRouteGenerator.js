@@ -1,28 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { useAppState, ROUTE_TYPES } from '../state/AppState.jsx';
+import { useT } from '../state/SettingsProvider.jsx';
 import { generateFromEngine, EngineError } from '../lib/engine.js';
-
-// Friendly Hebrew messages keyed by EngineError.code.
-const MESSAGES = {
-  'no-start': 'קבע נקודת התחלה (אפשר מיקום או חפש כתובת).',
-  offline: 'מנוע המסלולים לא זמין — ודא שהשרת רץ (uvicorn route_engine.api:app).',
-  http: 'יצירת המסלול נכשלה. נסה מרחק אחר או שוב בעוד רגע.',
-  empty: 'לא נמצא מסלול מתאים מהנקודה הזו. נסה מרחק אחר.',
-  'no-quality':
-    'לא נמצא מסלול עם פחות מ-3 פניות לק"מ באזור הזה. נסה מרחק אחר או נקודת התחלה אחרת.',
-  timeout:
-    'יצירת המסלול ארכה יותר מדי — נסה מרחק קצר יותר, או שוב בעוד רגע.',
-  'via-too-far':
-    'נקודת המעבר רחוקה מדי לסיבוב באורך הזה — קרב אותה או הגדל את המרחק.',
-  'no-via':
-    'לא נמצא סיבוב שעובר דרך נקודת המעבר. נסה נקודה אחרת או מרחק אחר.',
-  'no-end': 'בחר נקודת סיום (הקש על המפה או חפש כתובת).',
-  'end-uncovered': 'היעד מחוץ לאזור הזמין כרגע — נסה יעד קרוב יותר.',
-  'no-path': 'לא נמצא מסלול מ-A ל-B. נסה יעד אחר או מרחק אחר.',
-  building:
-    'מכינים את האזור הזה בפעם הראשונה — זה לוקח רגע. נסה שוב בעוד דקה.',
-  default: 'משהו השתבש ביצירת המסלול. נסה שוב.',
-};
 
 /**
  * Asks the Python route engine for a low-turn loop and stores it in state.
@@ -40,6 +19,7 @@ export function useRouteGenerator() {
     setRouteStatus,
     setRouteError,
   } = useAppState();
+  const { t } = useT();
   const abortRef = useRef(null);
 
   const generate = useCallback(async () => {
@@ -57,19 +37,17 @@ export function useRouteGenerator() {
         via: oneWay ? null : viaPoint,
         end: oneWay ? endPoint : null,
         signal: controller.signal,
-        // First request in a new area → engine builds it; show a "preparing…"
-        // state while we poll (only if this request wasn't already superseded).
         onBuilding: () => {
           if (abortRef.current === controller) setRouteStatus('building');
         },
       });
       setRouteCandidates(ranked);
-      setRouteIndex(0); // show the best
+      setRouteIndex(0);
       setRouteStatus('idle');
     } catch (err) {
-      if (err.name === 'AbortError') return; // superseded by a newer request
+      if (err.name === 'AbortError') return;
       const code = err instanceof EngineError ? err.code : 'default';
-      setRouteError(MESSAGES[code] ?? MESSAGES.default);
+      setRouteError(t(`err.${code}`) ?? t('err.default'));
       setRouteStatus('error');
     }
   }, [
@@ -82,6 +60,7 @@ export function useRouteGenerator() {
     setRouteIndex,
     setRouteStatus,
     setRouteError,
+    t,
   ]);
 
   return { generate };

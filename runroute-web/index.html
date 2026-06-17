@@ -27,6 +27,16 @@
     />
   </head>
   <body>
+    <script>
+      // Apply stored language before React mounts to avoid a direction flash.
+      try {
+        var l = localStorage.getItem('maway:lang');
+        if (l && l !== 'he') {
+          document.documentElement.lang = l;
+          document.documentElement.dir = 'ltr';
+        }
+      } catch (e) {}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

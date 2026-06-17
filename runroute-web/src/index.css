@@ -705,7 +705,9 @@ body {
   font-weight: 500;
 }
 
-/* Bright mint range slider. RTL so 1km sits on the right, 21 on the left. */
+/* Bright mint range slider.
+   RTL (Hebrew): 1 km on the right, 21 on the left — direction: rtl.
+   LTR (English): 1 km on the left, 21 on the right — default direction. */
 .slider {
   -webkit-appearance: none;
   appearance: none;
@@ -714,13 +716,28 @@ body {
   margin: 0;
   background: transparent;
   cursor: pointer;
+}
+[dir='rtl'] .slider {
   direction: rtl;
+}
+[dir='ltr'] .slider {
+  direction: ltr;
 }
 .slider::-webkit-slider-runnable-track {
   height: 8px;
   border-radius: 999px;
+  background: #e4e8ea;
+}
+[dir='rtl'] .slider::-webkit-slider-runnable-track {
   background: linear-gradient(
     to left,
+    var(--mint-deep) var(--fill, 40%),
+    #e4e8ea var(--fill, 40%)
+  );
+}
+[dir='ltr'] .slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
     var(--mint-deep) var(--fill, 40%),
     #e4e8ea var(--fill, 40%)
   );
@@ -1487,6 +1504,10 @@ body {
 .mapstyle-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.lang-row {
+  display: flex;
   gap: 8px;
 }
 .mapstyle-chip {

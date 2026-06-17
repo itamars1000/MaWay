@@ -1,38 +1,35 @@
 import { useAuth } from '../state/AuthProvider.jsx';
+import { useT } from '../state/SettingsProvider.jsx';
 import { GoogleIcon } from './icons.jsx';
 
 /**
- * Full-screen, app-style onboarding / sign-in shown on launch (and re-openable
- * from the header account button). Immersive brand background, a hero route
- * illustration, and actions anchored to the bottom (thumb zone). Sign in with
- * Google to save & sync routes, or skip as guest.
+ * Full-screen onboarding / sign-in shown on launch. Sign in with Google to
+ * save & sync routes, or skip as guest.
  */
 export default function LoginScreen() {
   const { loginVisible, signInWithGoogle, continueAsGuest } = useAuth();
+  const { t } = useT();
   if (!loginVisible) return null;
 
   return (
-    <div className="login-screen" role="dialog" aria-modal="true" aria-label="התחברות">
-      {/* soft decorative blobs for depth */}
+    <div className="login-screen" role="dialog" aria-modal="true" aria-label={t('login.ariaLabel')}>
       <span className="login-blob login-blob--1" aria-hidden="true" />
       <span className="login-blob login-blob--2" aria-hidden="true" />
 
       <div className="login-hero">
         <RouteArt />
         <img className="login-logo" src="/maway-logo.png" alt="MaWay" />
-        <h1 className="login-title">מצא את הדרך שלך</h1>
-        <p className="login-sub">
-          מסלולי ריצה ישרים ורציפים — שמירה וסנכרון בין כל המכשירים שלך.
-        </p>
+        <h1 className="login-title">{t('login.title')}</h1>
+        <p className="login-sub">{t('login.sub')}</p>
       </div>
 
       <div className="login-actions">
         <button type="button" className="auth-google" onClick={() => signInWithGoogle()}>
           <GoogleIcon size={20} />
-          <span>התחבר עם Google</span>
+          <span>{t('login.google')}</span>
         </button>
         <button type="button" className="auth-guest" onClick={continueAsGuest}>
-          המשך כאורח
+          {t('login.guest')}
         </button>
       </div>
     </div>
@@ -57,7 +54,6 @@ function RouteArt() {
         opacity="0.9"
       />
       <circle cx="26" cy="120" r="9" fill="#fff" stroke="#3e9b76" strokeWidth="4" />
-      {/* end pin */}
       <path
         d="M192 12 c10 0 18 8 18 18 0 13 -18 30 -18 30 s-18 -17 -18 -30 c0 -10 8 -18 18 -18 z"
         fill="#4a5a6b"

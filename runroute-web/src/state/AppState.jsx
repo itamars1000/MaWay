@@ -13,6 +13,8 @@ import {
   clearCloudRoutes,
 } from '../lib/cloudRoutes.js';
 import { useAuth } from './AuthProvider.jsx';
+import { getLang } from '../lib/settings.js';
+import { translate } from '../lib/i18n.js';
 
 // Cloud sync is best-effort: log and move on (localStorage already updated).
 const cloudWarn = (err) => console.warn('route sync skipped:', err?.message || err);
@@ -26,8 +28,10 @@ export const ROUTE_TYPES = { LOOP: 'loop', ONE_WAY: 'oneWay' };
 export const MIN_DISTANCE = 1; // km
 export const MAX_DISTANCE = 21.1; // km — half marathon (engine cap for now)
 
-// Label used while the start point tracks the live GPS position.
-export const CURRENT_LOCATION_LABEL = 'מיקום נוכחי';
+// Stable internal sentinels — used for equality checks, never shown as-is.
+// Display text is resolved via t('location.current') / t('location.mapPoint').
+export const CURRENT_LOCATION_LABEL = '__current_location__';
+export const MAP_POINT_LABEL = '__map_point__';
 
 const AppStateContext = createContext(null);
 
@@ -102,8 +106,7 @@ export function AppStateProvider({ children }) {
     setDistanceRaw(Math.min(MAX_DISTANCE, Math.max(MIN_DISTANCE, km)));
 
   const value = useMemo(() => {
-    const sheetTitle =
-      currentTab === TABS.ROUTE ? 'מסלול חדש' : 'המסלולים שלי';
+    // sheetTitle is computed in BottomSheet via useT() so it reacts to lang changes.
 
     // True while the start point should follow the live GPS position.
     const usingCurrentLocation = startLocation === CURRENT_LOCATION_LABEL;
@@ -128,10 +131,10 @@ export function AppStateProvider({ children }) {
       if (pickingMode === 'via') setViaPoint({ lat, lng });
       else if (pickingMode === 'end') {
         setEndPoint({ lat, lng });
-        setEndLocation('נקודה על המפה');
+        setEndLocation(MAP_POINT_LABEL);
       } else if (pickingMode === 'start') {
         setStartPosition({ lat, lng });
-        setStartLocation('נקודה על המפה'); // a non-CURRENT label → uses this point
+        setStartLocation(MAP_POINT_LABEL); // a non-CURRENT sentinel → uses this point
       }
       setPickingMode(null);
     };
@@ -171,10 +174,11 @@ export function AppStateProvider({ children }) {
     // Save the currently-shown route to the device (auto-named).
     const saveCurrentRoute = () => {
       if (!generatedRoute) return;
-      const typeLabel = routeType === ROUTE_TYPES.LOOP ? 'סיבוב' : 'A→B';
+      const _lang = getLang();
+      const typeLabel = translate(_lang, routeType === ROUTE_TYPES.LOOP ? 'route.typeLoop' : 'route.typeAB');
       const item = {
         id: `r${Date.now()}`,
-        name: `${typeLabel} · ${generatedRoute.distanceKm.toFixed(1)} ק"מ`,
+        name: `${typeLabel} · ${generatedRoute.distanceKm.toFixed(1)} ${translate(_lang, 'units.km')}`,
         createdAt: Date.now(),
         type: routeType,
         distanceKm: generatedRoute.distanceKm,
@@ -254,7 +258,6 @@ export function AppStateProvider({ children }) {
       setSelectedDistance,
       startLocation,
       setStartLocation,
-      sheetTitle,
       // location
       currentPosition,
       setCurrentPosition,

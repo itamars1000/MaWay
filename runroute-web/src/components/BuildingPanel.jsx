@@ -1,12 +1,5 @@
 import { useEffect, useState } from 'react';
-
-// Illustrative stages cycled while the cloud builds the area (we have no live
-// backend progress signal — these convey motion + roughly what's happening).
-const STEPS = [
-  'מורידים מפת רחובות…',
-  'בונים רשת דרכים…',
-  'מחשבים מסלולים מתאימים…',
-];
+import { useT } from '../state/SettingsProvider.jsx';
 
 function fmtElapsed(sec) {
   const m = Math.floor(sec / 60);
@@ -15,13 +8,13 @@ function fmtElapsed(sec) {
 }
 
 /**
- * Shown while the engine builds a brand-new area's map in the cloud — the first
- * request in an uncovered place (~1–4 min, one-time per area). Replaces the
- * disabled CTA so a multi-minute wait feels alive and expected, not frozen.
- * Self-contained: it only mounts while routeStatus === 'building', so its timers
- * start on mount and clear on unmount.
+ * Shown while the engine builds a brand-new area's map in the cloud.
+ * Self-contained: mounts while routeStatus === 'building', so timers start on
+ * mount and clear on unmount.
  */
 export default function BuildingPanel() {
+  const { t } = useT();
+  const STEPS = [t('build.step1'), t('build.step2'), t('build.step3')];
   const [elapsed, setElapsed] = useState(0);
   const [step, setStep] = useState(0);
 
@@ -32,29 +25,29 @@ export default function BuildingPanel() {
       clearInterval(tick);
       clearInterval(cycle);
     };
+    // STEPS length is stable — only STEPS content changes with lang, which
+    // remounts this component via a key from RouteForm's building state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div className="building-panel" role="status" aria-live="polite">
       <div className="building-head">
         <span className="map-spinner building-spinner" aria-hidden="true" />
-        <span className="building-title">מכינים את האזור הזה</span>
+        <span className="building-title">{t('build.title')}</span>
       </div>
 
       <div className="building-progress" aria-hidden="true">
         <span className="building-progress__bar" />
       </div>
 
-      {/* `key` re-mounts the node each change so the fade-in animation replays. */}
       <div className="building-step" key={step}>
         {STEPS[step]}
       </div>
 
       <div className="building-meta">
         <span className="building-time">{fmtElapsed(elapsed)}</span>
-        <span className="building-note">
-          פעם ראשונה באזור הזה — בדרך כלל כדקה. בפעם הבאה זה יהיה מיידי.
-        </span>
+        <span className="building-note">{t('build.note')}</span>
       </div>
     </div>
   );

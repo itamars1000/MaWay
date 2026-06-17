@@ -1,19 +1,31 @@
-import { createContext, useContext, useState } from 'react';
-import { getMapStyleId, setMapStyleStored } from '../lib/settings.js';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { getMapStyleId, setMapStyleStored, getLang, setLangStored } from '../lib/settings.js';
+import { translate } from '../lib/i18n.js';
 
-/**
- * UI state for the settings screen + the persisted user preferences it edits.
- */
 const SettingsContext = createContext(null);
 
 export function SettingsProvider({ children }) {
   const [open, setOpen] = useState(false);
   const [mapStyle, setMapStyleState] = useState(getMapStyleId);
+  const [lang, setLangState] = useState(getLang);
 
   const setMapStyle = (id) => {
     setMapStyleState(id);
     setMapStyleStored(id);
   };
+
+  const setLang = (l) => {
+    setLangState(l);
+    setLangStored(l);
+  };
+
+  // Sync document direction and language attribute whenever lang changes.
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
+  }, [lang]);
+
+  const t = useCallback((key, vars) => translate(lang, key, vars), [lang]);
 
   const value = {
     open,
@@ -21,6 +33,9 @@ export function SettingsProvider({ children }) {
     closeSettings: () => setOpen(false),
     mapStyle,
     setMapStyle,
+    lang,
+    setLang,
+    t,
   };
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
@@ -29,4 +44,10 @@ export function useSettings() {
   const ctx = useContext(SettingsContext);
   if (!ctx) throw new Error('useSettings must be used within a SettingsProvider');
   return ctx;
+}
+
+/** Shortcut for just the translation function + current language. */
+export function useT() {
+  const { t, lang } = useSettings();
+  return { t, lang };
 }
