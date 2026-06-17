@@ -185,6 +185,8 @@ async function attemptLoop(url, signal) {
       if (d.startsWith('no_via')) throw new EngineError('no-via', detail);
       if (d.startsWith('end_uncovered')) throw new EngineError('end-uncovered', detail);
       if (d.startsWith('no_path')) throw new EngineError('no-path', detail);
+      // The first-time area build failed (transient data-source outage, etc.).
+      if (d.startsWith('build_failed')) throw new EngineError('build-failed', detail);
     }
     // 404 "no-server", 502/503/504 gateway blips = transient infra → retry.
     throw new EngineError('http', `Engine responded ${res.status}`, {

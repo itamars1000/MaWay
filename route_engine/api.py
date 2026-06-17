@@ -38,6 +38,13 @@ def _ondemand_region(lat, lng, distance, span_m=None):
                 status_code=425,
                 detail="building: preparing this area for the first time",
             )
+        except RuntimeError as exc:
+            # The async build Job failed (e.g. a transient data-source outage)
+            # or couldn't be started. Surface a distinct, friendly code rather
+            # than the generic "try a different distance" path — and let the web
+            # app advise the user to retry shortly (the short error cooldown in
+            # world_store means a retry will re-trigger a fresh build).
+            raise HTTPException(status_code=422, detail=f"build_failed: {exc}")
     return ondemand.get_or_build(lat, lng, distance, span_m=span_m)
 
 

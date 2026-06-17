@@ -30,7 +30,11 @@ _BUILD_JOB = os.getenv("BUILD_JOB", "").strip()
 _PROJECT_ENV = os.getenv("GCP_PROJECT", "").strip()
 _REGION = os.getenv("BUILD_JOB_REGION", os.getenv("GCP_REGION", "")).strip()
 _BUILD_TIMEOUT_S = float(os.getenv("BUILD_TIMEOUT_S", "1200"))
-_ERROR_COOLDOWN_S = float(os.getenv("BUILD_ERROR_COOLDOWN_S", "300"))
+# After a failed build we briefly refuse to re-trigger (so a genuinely broken
+# area doesn't spam the Job). Kept short: most failures are transient data-source
+# blips, and the web app tells the user to "try again in a moment" — a retry past
+# this window re-triggers a fresh build.
+_ERROR_COOLDOWN_S = float(os.getenv("BUILD_ERROR_COOLDOWN_S", "90"))
 
 _project_cache: str | None = None
 

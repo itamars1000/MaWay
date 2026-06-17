@@ -139,6 +139,7 @@ export const TRANSLATIONS = {
     'err.end-uncovered': 'היעד מחוץ לאזור הזמין כרגע — נסה יעד קרוב יותר.',
     'err.no-path': 'לא נמצא מסלול מ-A ל-B. נסה יעד אחר או מרחק אחר.',
     'err.building': 'מכינים את האזור הזה בפעם הראשונה — זה לוקח רגע. נסה שוב בעוד דקה.',
+    'err.build-failed': 'לא הצלחנו להכין את האזור הזה כרגע — נסה שוב בעוד רגע.',
     'err.default': 'משהו השתבש ביצירת המסלול. נסה שוב.',
   },
 
@@ -279,6 +280,7 @@ export const TRANSLATIONS = {
     'err.end-uncovered': 'The destination is outside the currently available area — try a closer destination.',
     'err.no-path': 'No route from A to B found. Try a different destination or distance.',
     'err.building': 'Preparing this area for the first time — this takes a moment. Try again in a minute.',
+    'err.build-failed': "We couldn't prepare this area right now — please try again in a moment.",
     'err.default': 'Something went wrong creating the route. Please try again.',
   },
 };
