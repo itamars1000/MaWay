@@ -113,6 +113,12 @@ body {
 /* Light dashes marching along the route → a directional "flow". */
 .rr-route-flow {
   animation: rr-flow 1.1s linear infinite;
+  /* Hidden during the one-time route draw; fades in once the line finishes. */
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+.rr-route-flow.is-on {
+  opacity: 0.9;
 }
 @keyframes rr-flow {
   to {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MapContainer,
   TileLayer,
@@ -98,6 +98,137 @@ function ViaPicker({ active, onPick }) {
     },
   });
   return null;
+}
+
+const REVEAL_MS = 750;
+
+/**
+ * The route as three stacked polylines (white casing, solid mint line, animated
+ * directional flow), with a one-time "draw-on" reveal: when a new route appears
+ * the casing + mint line draw themselves head→tail via stroke-dashoffset, then
+ * the flow overlay fades in. The draw waits for the fit/fly to settle (so the
+ * SVG geometry — and thus getTotalLength — is final) and is skipped entirely
+ * under prefers-reduced-motion.
+ */
+function RouteLines({ route }) {
+  const map = useMap();
+  const casingRef = useRef(null);
+  const lineRef = useRef(null);
+  const flowRef = useRef(null);
+  const routeKey = route.map((p) => p.join(',')).join('|');
+
+  useEffect(() => {
+    const lines = [casingRef.current, lineRef.current]
+      .map((l) => l?.getElement?.())
+      .filter(Boolean);
+    const flowEl = flowRef.current?.getElement?.();
+    // The flow overlay is hidden by default (CSS opacity 0); `is-on` fades it in.
+    // We toggle it on the DOM element directly — react-leaflet does NOT update a
+    // Polyline's className after creation, so doing it via props would be a no-op.
+    const revealFlow = () => flowEl && flowEl.classList.add('is-on');
+
+    // No SVG paths yet, or reduced motion → skip the draw and just show the route.
+    if (!lines.length || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      revealFlow();
+      return undefined;
+    }
+
+    if (flowEl) flowEl.classList.remove('is-on');
+    // Hide the solid route until the map settles, so the draw starts clean.
+    lines.forEach((p) => {
+      p.style.opacity = '0';
+    });
+
+    let started = false;
+    let timer;
+    const draw = () => {
+      if (started) return;
+      started = true;
+      clearTimeout(fallback);
+      map.off('moveend', draw);
+
+      lines.forEach((p) => {
+        const len = p.getTotalLength();
+        p.style.transition = 'none';
+        p.style.opacity = '';
+        p.style.strokeDasharray = `${len}`;
+        p.style.strokeDashoffset = `${len}`;
+      });
+      void lines[0].getBoundingClientRect(); // reflow so the offset→0 animates
+      requestAnimationFrame(() => {
+        lines.forEach((p) => {
+          p.style.transition = `stroke-dashoffset ${REVEAL_MS}ms ease-out`;
+          p.style.strokeDashoffset = '0';
+        });
+      });
+      timer = setTimeout(() => {
+        lines.forEach((p) => {
+          p.style.transition = '';
+          p.style.strokeDasharray = '';
+          p.style.strokeDashoffset = '';
+        });
+        revealFlow(); // reveal the animated flow overlay once drawn
+      }, REVEAL_MS);
+    };
+
+    // Start once the fit/fly settles (geometry stable); fall back if no move.
+    map.once('moveend', draw);
+    const fallback = setTimeout(draw, 700);
+
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(fallback);
+      map.off('moveend', draw);
+      lines.forEach((p) => {
+        p.style.transition = '';
+        p.style.strokeDasharray = '';
+        p.style.strokeDashoffset = '';
+        p.style.opacity = '';
+      });
+      if (flowEl) flowEl.classList.remove('is-on');
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeKey]);
+
+  return (
+    <>
+      <Polyline
+        ref={casingRef}
+        positions={route}
+        pathOptions={{
+          color: '#ffffff',
+          weight: 9,
+          opacity: 0.95,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }}
+      />
+      <Polyline
+        ref={lineRef}
+        positions={route}
+        pathOptions={{
+          color: '#3e9b76',
+          weight: 5,
+          lineCap: 'round',
+          lineJoin: 'round',
+          className: 'rr-route-line',
+        }}
+      />
+      <Polyline
+        ref={flowRef}
+        positions={route}
+        pathOptions={{
+          color: '#eaf7f0',
+          weight: 5,
+          opacity: 0.9,
+          lineCap: 'round',
+          lineJoin: 'round',
+          dashArray: '10 16',
+          className: 'rr-route-flow',
+        }}
+      />
+    </>
+  );
 }
 
 /**
@@ -207,46 +338,9 @@ export default function MapView({ sheetFraction }) {
           maxZoom={tile.maxZoom}
           eventHandlers={{ load: () => setMapReady(true) }}
         />
-        {/* Route — only when a real route exists (no fake placeholder). Three
-            stacked lines: a white casing (pops on dark/satellite), the solid
-            mint route, and a light dashed overlay that animates a directional
-            "flow" along the path. */}
-        {route && (
-          <>
-            <Polyline
-              positions={route}
-              pathOptions={{
-                color: '#ffffff',
-                weight: 9,
-                opacity: 0.95,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-            <Polyline
-              positions={route}
-              pathOptions={{
-                color: '#3e9b76',
-                weight: 5,
-                lineCap: 'round',
-                lineJoin: 'round',
-                className: 'rr-route-line',
-              }}
-            />
-            <Polyline
-              positions={route}
-              pathOptions={{
-                color: '#eaf7f0',
-                weight: 5,
-                opacity: 0.9,
-                lineCap: 'round',
-                lineJoin: 'round',
-                dashArray: '10 16',
-                className: 'rr-route-flow',
-              }}
-            />
-          </>
-        )}
+        {/* Route — only when a real route exists (no fake placeholder). Drawn
+            with a one-time head→tail reveal; see RouteLines. */}
+        {route && <RouteLines route={route} />}
 
         {/* Live location: blue dot with a pulsing ring. */}
         {currentPosition && (
