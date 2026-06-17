@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -31,9 +31,9 @@
       // Apply stored language before React mounts to avoid a direction flash.
       try {
         var l = localStorage.getItem('maway:lang');
-        if (l && l !== 'he') {
-          document.documentElement.lang = l;
-          document.documentElement.dir = 'ltr';
+        if (l === 'he') {
+          document.documentElement.lang = 'he';
+          document.documentElement.dir = 'rtl';
         }
       } catch (e) {}
     </script>

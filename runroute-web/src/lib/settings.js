@@ -25,9 +25,9 @@ export function setMapStyleStored(id) {
 /** Persisted UI language ('he' | 'en'). Defaults to Hebrew. */
 export function getLang() {
   try {
-    return localStorage.getItem(LANG_KEY) || 'he';
+    return localStorage.getItem(LANG_KEY) || 'en';
   } catch {
-    return 'he';
+    return 'en';
   }
 }
 
