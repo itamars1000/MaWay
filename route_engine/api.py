@@ -22,7 +22,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from . import elevation, graph_store, learning, ondemand, world_store
+from . import graph_store, learning, ondemand, world_store
 from .router import find_loop_candidates, RouteError
 
 
@@ -207,10 +207,7 @@ def loop(
     except RouteError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
-    # Best-effort elevation gain/loss (never fails the route).
-    try:
-        elevation.add_elevation(candidates)
-    except Exception:  # noqa: BLE001
-        pass
-
+    # Elevation gain/loss is fetched inside the router now (it both annotates the
+    # routes for display AND lets the scorer prefer flatter loops), so there's no
+    # separate elevation pass here.
     return {"type": "FeatureCollection", "features": candidates}

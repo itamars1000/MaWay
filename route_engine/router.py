@@ -28,7 +28,7 @@ from concurrent.futures import (
 import numpy as np
 import rustworkx as rx
 
-from . import learning
+from . import elevation, learning
 from .geo import bearing as geo_bearing, destination, haversine, wrap180
 from .geometry import feature_from_coords
 
@@ -77,6 +77,12 @@ SCORE_W_ROUGH = 0.25
 # Sidewalk/foot-designated infrastructure — prefer routes that have it.
 # Subtracted so higher sidewalked_frac → lower (better) score.
 SCORE_W_SIDEWALK = 0.15
+# Prefer flatter loops among qualifying routes. Fixed (not learned), modest — a
+# runner's first question is "flat or hilly?". Elevation is fetched best-effort
+# at finalize time; a route with no ascent data gets 0 penalty (no behaviour
+# change when Open-Meteo is unreachable).
+SCORE_W_HILL = 0.25
+HILL_NORM_M_PER_KM = 50.0  # climb/km mapping to full badness (1.0); flat≈5-10
 MAX_TURNS_PER_KM = 3.0     # hard quality cap returned to the client
 # Max fraction of a returned route that may run on unpaved/off-road ways. Routes
 # above this are rejected when a paved alternative exists (graceful fallback).
@@ -232,6 +238,22 @@ def _dedupe(cands):
         if len(kept) >= MAX_RETURNED:
             break
     return kept
+
+
+def _finalize(cands, target_m, resort=True):
+    """Attach best-effort elevation to the final (small) candidate set, then —
+    when `resort` — re-rank by the elevation-aware score so the flattest
+    qualifying loop leads. One Open-Meteo request for the whole set; on failure
+    the routes are returned unchanged (no hill penalty, never an error)."""
+    if not cands:
+        return cands
+    try:
+        elevation.add_elevation(cands)
+    except Exception:  # noqa: BLE001 — elevation is best-effort, never fatal
+        pass
+    if resort:
+        cands.sort(key=lambda f: _score(f, target_m))
+    return cands
 
 
 def _add_quality_fracs(region, full, feat):
@@ -541,6 +563,17 @@ def route_features(feature, target_m):
     }
 
 
+def _hill_badness(feature):
+    """Climb-per-km badness in [0,1]. 0 when no elevation data (best-effort) or
+    flat; 1.0 once ascent reaches HILL_NORM_M_PER_KM per km."""
+    p = feature["properties"]
+    ascent = p.get("ascent_m")
+    if ascent is None:
+        return 0.0
+    km = max(p.get("distance_m", 0.0) / 1000.0, 0.1)
+    return min((ascent / km) / HILL_NORM_M_PER_KM, 1.0)
+
+
 def _score(feature, target_m):
     """Lower is better. Weights are learned from 👍/👎 feedback (blended with
     the hand-tuned defaults until enough feedback accumulates)."""
@@ -552,12 +585,13 @@ def _score(feature, target_m):
         + w["pleasant"] * f["pleasant"]
         + w.get("scenic", 0.0) * f["scenic"]
         # Fixed (not learned) so among qualifying routes the least off-road,
-        # least busy-road, roundest loop wins.
+        # least busy-road, roundest, flattest loop wins.
         + SCORE_W_OFFROAD * feature["properties"].get("offroad_frac", 0.0)
         + SCORE_W_OVERLAP * feature["properties"].get("overlap_frac", 0.0)
         + SCORE_W_BUSY * feature["properties"].get("busy_frac", 0.0)
         + SCORE_W_ROUGH * feature["properties"].get("rough_frac", 0.0)
         - SCORE_W_SIDEWALK * feature["properties"].get("sidewalked_frac", 0.0)
+        + SCORE_W_HILL * _hill_badness(feature)
     )
 
 
@@ -727,10 +761,10 @@ def find_loop_candidates(region, lat, lng, target_m, n=None,
             # Accurate routes lead, but PAD with the remaining qualifying shapes
             # so "מסלול הבא" still offers different loops (they may run longer).
             rest = [f for f in on_road if f not in close]
-            return _dedupe(close + rest)
+            return _finalize(_dedupe(close + rest), target_m)
         low_turn = [f for f in meets
                     if f["properties"]["sharp_turns_per_km"] <= MAX_TURNS_PER_KM]
-        return _dedupe(low_turn if low_turn else meets)
+        return _finalize(_dedupe(low_turn if low_turn else meets), target_m)
 
     # No route here reaches the requested length → return the LONGEST available
     # (closest from below), flagged so the UI says it's shorter than requested.
@@ -740,7 +774,8 @@ def find_loop_candidates(region, lat, lng, target_m, n=None,
         f["properties"]["below_requested"] = (
             f["properties"]["distance_m"] < target_m
         )
-    return longest
+    # Elevation for display only — keep the intentional distance-descending order.
+    return _finalize(longest, target_m, resort=False)
 
 
 def find_loop(region, lat, lng, target_m, seed=None, beta=BETA):
