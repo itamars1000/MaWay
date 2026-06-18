@@ -72,6 +72,11 @@ SCORE_W_OVERLAP = 0.5      # extra badness per unit self-overlap (fixed)
 # main road is fine; we just avoid loops dominated by it. (0 for legacy tiles
 # with no `busy` array → no behaviour change until they rebuild.)
 SCORE_W_BUSY = 0.35
+# Rough-paved surfaces (sett/cobblestones/metal) — lighter than offroad (0.6).
+SCORE_W_ROUGH = 0.25
+# Sidewalk/foot-designated infrastructure — prefer routes that have it.
+# Subtracted so higher sidewalked_frac → lower (better) score.
+SCORE_W_SIDEWALK = 0.15
 MAX_TURNS_PER_KM = 3.0     # hard quality cap returned to the client
 # Max fraction of a returned route that may run on unpaved/off-road ways. Routes
 # above this are rejected when a paved alternative exists (graceful fallback).
@@ -243,6 +248,14 @@ def _add_quality_fracs(region, full, feat):
     if busy is not None:
         feat["properties"]["busy_frac"] = round(
             sum(seg_len[i] for i in full if busy[i]) / total, 3)
+    rough = getattr(region, "rough", None)
+    if rough is not None:
+        feat["properties"]["rough_frac"] = round(
+            sum(seg_len[i] for i in full if rough[i]) / total, 3)
+    sidewalked = getattr(region, "sidewalked", None)
+    if sidewalked is not None:
+        feat["properties"]["sidewalked_frac"] = round(
+            sum(seg_len[i] for i in full if sidewalked[i]) / total, 3)
     feat["properties"]["overlap_frac"] = round(
         _overlap_frac(_feature_points(feat)), 3)
     return feat
@@ -543,6 +556,8 @@ def _score(feature, target_m):
         + SCORE_W_OFFROAD * feature["properties"].get("offroad_frac", 0.0)
         + SCORE_W_OVERLAP * feature["properties"].get("overlap_frac", 0.0)
         + SCORE_W_BUSY * feature["properties"].get("busy_frac", 0.0)
+        + SCORE_W_ROUGH * feature["properties"].get("rough_frac", 0.0)
+        - SCORE_W_SIDEWALK * feature["properties"].get("sidewalked_frac", 0.0)
     )
 
 

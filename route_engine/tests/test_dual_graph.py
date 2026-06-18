@@ -1,7 +1,12 @@
 """Lightweight unit tests for the kinematic turn penalty (no osmnx needed)."""
 import math
 
-from route_engine.dual_graph import turn_penalty
+import networkx as nx
+
+from route_engine.builder import prune
+from route_engine.dual_graph import (
+    is_offroad, is_rough_paved, is_sidewalked, turn_penalty,
+)
 from route_engine.geo import bearing, destination, haversine, wrap180
 
 
@@ -35,3 +40,107 @@ def test_wrap180():
     assert wrap180(190) == -170
     assert wrap180(-190) == 170
     assert wrap180(45) == 45
+
+
+# ---------------------------------------------------------------------------
+# is_rough_paved
+# ---------------------------------------------------------------------------
+
+def test_is_rough_paved_sett():
+    assert is_rough_paved("residential", "sett") is True
+
+
+def test_is_rough_paved_paving_stones():
+    assert is_rough_paved("pedestrian", "paving_stones") is True
+
+
+def test_is_rough_paved_asphalt_is_false():
+    assert is_rough_paved("residential", "asphalt") is False
+
+
+def test_is_rough_paved_none_surface_is_false():
+    assert is_rough_paved("residential", None) is False
+
+
+def test_rough_no_double_penalty_with_offroad():
+    # gravel is already caught as offroad → must NOT also be rough_paved
+    assert is_offroad("residential", "gravel") is True
+    assert is_rough_paved("residential", "gravel") is False
+
+
+# ---------------------------------------------------------------------------
+# is_sidewalked
+# ---------------------------------------------------------------------------
+
+def test_is_sidewalked_both():
+    assert is_sidewalked("primary", "both", None) is True
+
+
+def test_is_sidewalked_right():
+    assert is_sidewalked("secondary", "right", None) is True
+
+
+def test_is_sidewalked_foot_designated():
+    assert is_sidewalked("footway", None, "designated") is True
+
+
+def test_is_sidewalked_foot_official():
+    assert is_sidewalked("path", None, "official") is True
+
+
+def test_is_sidewalked_negative_no_tags():
+    assert is_sidewalked("residential", None, None) is False
+
+
+def test_is_sidewalked_foot_permissive_is_false():
+    # permissive access ≠ designated infrastructure
+    assert is_sidewalked("path", None, "permissive") is False
+
+
+# ---------------------------------------------------------------------------
+# prune — foot access restriction
+# ---------------------------------------------------------------------------
+
+def _tiny_graph():
+    """Three nodes A-B-C connected in a line (so B is not a dead-end)."""
+    G = nx.MultiDiGraph()
+    G.add_node(0, x=34.78, y=32.08)
+    G.add_node(1, x=34.79, y=32.08)
+    G.add_node(2, x=34.80, y=32.08)
+    return G
+
+
+def test_prune_removes_foot_no():
+    G = _tiny_graph()
+    G.add_edge(0, 1, 0, highway="residential", length=100, foot="no")
+    G.add_edge(1, 2, 0, highway="residential", length=100)
+    G.add_edge(2, 1, 0, highway="residential", length=100)
+    G.add_edge(1, 0, 0, highway="residential", length=100)
+    prune(G)
+    assert not G.has_edge(0, 1)
+
+
+def test_prune_keeps_foot_yes_on_access_no():
+    # Use a square loop 0↔1↔2↔3↔0 so no node ends up a dead-end.
+    # The 0→1 edge has access=no but foot=yes — must survive foot-restriction pruning.
+    G = nx.MultiDiGraph()
+    for i in range(4):
+        G.add_node(i, x=34.78 + i * 0.01, y=32.08)
+    for u, v, extra in [
+        (0, 1, {"access": "no", "foot": "yes"}),
+        (1, 0, {}), (1, 2, {}), (2, 1, {}),
+        (2, 3, {}), (3, 2, {}), (3, 0, {}), (0, 3, {}),
+    ]:
+        G.add_edge(u, v, 0, highway="residential", length=100, **extra)
+    prune(G)
+    assert G.has_edge(0, 1)
+
+
+def test_prune_removes_access_no_without_foot_override():
+    G = _tiny_graph()
+    G.add_edge(0, 1, 0, highway="residential", length=100, access="no")
+    G.add_edge(1, 2, 0, highway="residential", length=100)
+    G.add_edge(2, 1, 0, highway="residential", length=100)
+    G.add_edge(1, 0, 0, highway="residential", length=100)
+    prune(G)
+    assert not G.has_edge(0, 1)

@@ -60,6 +60,14 @@ class Region:
         self.busy = np.asarray(
             data.get("busy", [False] * len(data["coords"])), dtype=bool
         )
+        # Rough-paved: sett/cobblestones/metal — technically paved but unpleasant.
+        self.rough = np.asarray(
+            data.get("rough", [False] * len(data["coords"])), dtype=bool
+        )
+        # Edges with a mapped sidewalk or foot=designated/official.
+        self.sidewalked = np.asarray(
+            data.get("sidewalked", [False] * len(data["coords"])), dtype=bool
+        )
         # Scenic "destination" anchors (lat,lng) the router aims candidates at.
         anchors = data.get("scenic_anchors") or []
         self.anchor_lat = np.asarray([a[0] for a in anchors], dtype=float)

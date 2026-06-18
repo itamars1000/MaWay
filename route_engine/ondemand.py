@@ -34,7 +34,8 @@ _LOCK = threading.Lock()
 # or the keying scheme changes) so stale cached tiles are rebuilt, not served.
 # v7: loop tiles are distance-INDEPENDENT (one generous tile per cell serves
 # every loop length) so changing the requested distance never rebuilds the area.
-_TILE_VERSION = "v7"
+# v8: rough-paved + sidewalked arrays added; foot=no/private edges pruned at build.
+_TILE_VERSION = "v8"
 
 # Radius of a loop tile. One generous, distance-independent tile per ~1 km cell:
 # big enough that loops up to the API max (~21 km, reach ≈ distance/π) stay inside

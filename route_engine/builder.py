@@ -25,6 +25,8 @@ from .dual_graph import build_dual_graph, _edge_latlng
 
 ox.settings.use_cache = True
 ox.settings.log_console = False
+# Ensure the sidewalk tag is downloaded with each edge so is_sidewalked() works.
+ox.settings.useful_tags_way = list(ox.settings.useful_tags_way) + ["sidewalk"]
 
 # Highways we never route on (unsafe for running). Off-road dirt ways are NOT
 # dropped here — removing them broke connectivity and forced extra turns;
@@ -40,12 +42,24 @@ def _highway_of(data) -> str:
     return hw or ""
 
 
+_FOOT_DENIED = {"no", "private", "restricted"}
+_FOOT_OVERRIDE = {"yes", "designated", "official", "permissive"}
+
+
 def prune(G):
-    """Drop motorways/trunks, then iteratively remove dead-ends (degree-1)."""
+    """Drop motorways/trunks, foot-restricted ways, then iteratively remove dead-ends."""
     G.remove_edges_from(
         [(u, v, k) for u, v, k, d in G.edges(keys=True, data=True)
          if _highway_of(d) in _DROP_HIGHWAYS]
     )
+    # Remove edges where pedestrians are explicitly excluded. The `foot` tag
+    # overrides the general `access` tag (foot=yes on an access=no road is fine).
+    G.remove_edges_from([
+        (u, v, k) for u, v, k, d in G.edges(keys=True, data=True)
+        if d.get("foot") in _FOOT_DENIED
+        or (d.get("access") in {"no", "private"}
+            and d.get("foot") not in _FOOT_OVERRIDE)
+    ])
     while True:
         und = G.to_undirected()
         dead = [n for n in list(G.nodes) if und.degree(n) <= 1]
@@ -231,7 +245,9 @@ def serialize(G, DG, info, place):
     pleasant = [False] * n
     scenic = [False] * n
     offroad = [False] * n
+    rough = [False] * n
     busy = [False] * n
+    sidewalked = [False] * n
     v_primal = [None] * n
     node_useg = [None] * n
     coords = [None] * n
@@ -245,7 +261,9 @@ def serialize(G, DG, info, place):
         pleasant[i] = bool(m["pleasant"])
         scenic[i] = bool(m.get("scenic", False))
         offroad[i] = bool(m.get("offroad", False))
+        rough[i] = bool(m.get("rough", False))
         busy[i] = bool(m.get("busy", False))
+        sidewalked[i] = bool(m.get("sidewalked", False))
         v_primal[i] = m["v"]
         node_useg[i] = list(_undirected_seg(nid))  # JSON/pickle-friendly
         coords[i] = m["coords"]
@@ -270,7 +288,7 @@ def serialize(G, DG, info, place):
         "bbox": bbox,
         "end_lat": end_lat, "end_lng": end_lng, "end_heading": end_heading,
         "length": length, "pleasant": pleasant, "scenic": scenic,
-        "offroad": offroad, "busy": busy,
+        "offroad": offroad, "rough": rough, "busy": busy, "sidewalked": sidewalked,
         "scenic_anchors": scenic_anchors,
         "v_primal": v_primal, "node_useg": node_useg, "coords": coords,
         "edges": edges,

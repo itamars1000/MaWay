@@ -82,6 +82,14 @@ _PAVED_SURFACES = {
 }
 _UNPAVED_FACTOR = 5.0
 
+# Technically "paved" surfaces that are still rough/unpleasant for running
+# (old cobblestones, metal grating, wooden boardwalks). Not `offroad` — routing
+# cost is unchanged — but the scorer penalises them as a softer signal.
+_ROUGH_SURFACES = {"paving_stones", "sett", "metal", "wood"}
+
+# OSM `sidewalk` tag values that indicate pedestrian infrastructure is present.
+_SIDEWALK_VALUES = {"left", "right", "both", "yes", "separate"}
+
 
 def is_offroad(highway, surface) -> bool:
     """True if running this segment means going off paved streets (dirt/field)."""
@@ -95,6 +103,22 @@ def is_offroad(highway, surface) -> bool:
     if hw == "path" and s not in _PAVED_SURFACES:
         return True
     return False
+
+
+def is_rough_paved(highway, surface) -> bool:
+    """True if the surface is technically paved but rough/unpleasant for running
+    (old cobblestones, sett, metal grating). Distinct from `is_offroad` — no
+    routing cost change, just a lighter scoring penalty."""
+    s = surface[0] if isinstance(surface, list) else surface
+    return s in _ROUGH_SURFACES
+
+
+def is_sidewalked(highway, sidewalk, foot) -> bool:
+    """True if the edge has explicit pedestrian infrastructure: a mapped sidewalk
+    or a path designated/official for foot use."""
+    sw = sidewalk[0] if isinstance(sidewalk, list) else sidewalk
+    ft = foot[0] if isinstance(foot, list) else foot
+    return sw in _SIDEWALK_VALUES or ft in {"designated", "official"}
 
 # Classes that are pleasant to run on (quiet / car-free). Used by the router's
 # scorer to prefer nicer routes among those that meet the turn cap.
@@ -191,8 +215,14 @@ def build_dual_graph(G, alpha: float = 500.0, k: float = 3.0,
             "cost_len": cost,
             # Whether this segment is off-road/unpaved (dirt/field trail).
             "offroad": offroad,
+            # Rough-paved: technically paved but unpleasant (sett/cobblestones/metal).
+            "rough": is_rough_paved(data.get("highway"), data.get("surface")),
             # Whether this segment runs ALONG a busy road (used for crossings).
             "busy": is_busy(data.get("highway")),
+            # Whether the edge has a mapped sidewalk or is foot=designated.
+            "sidewalked": is_sidewalked(
+                data.get("highway"), data.get("sidewalk"), data.get("foot")
+            ),
             # Whether this segment is pleasant to run (quiet / green).
             "pleasant": is_pleasant(data.get("highway"), green),
             # Whether this segment is scenic (near water / a park / the beach).
