@@ -181,6 +181,16 @@ def _write_bytes(name: str, data: bytes, content_type: str | None = None) -> Non
         f.write(data)
 
 
+def _exists(name: str) -> bool:
+    """True if a region artifact ('<file>.pkl') is present in GCS or on disk."""
+    if _BUCKET:
+        try:
+            return _gcs().blob(name).exists()
+        except Exception:  # noqa: BLE001 — treat a lookup error as "not present"
+            return False
+    return os.path.exists(os.path.join(_REGIONS_DIR, name))
+
+
 # ---- on-demand tiles (built in the cloud, served lazily) -------------------
 # On-demand tiles live under this prefix, separate from the precomputed base
 # regions listed in index.json. Each tile has a sidecar JSON "marker" recording
@@ -229,6 +239,39 @@ def reload():
     """Re-read the base region index from storage without a restart (so a newly
     uploaded base city is picked up). Returns the new region count."""
     return len(load_all(_REGIONS_DIR))
+
+
+def reindex():
+    """Self-heal index.json: drop entries whose .pkl no longer exists in storage,
+    rewrite the index, and reload it. Returns {kept, dropped:[names]}.
+
+    Use after a region pickle is deleted/lost — `region_for` already skips a
+    missing pkl at request time (graceful), but the stale index entry keeps
+    costing a failed load attempt + warning on every lookup until it's removed.
+    """
+    try:
+        entries = json.loads(_read_bytes("index.json"))
+    except Exception as exc:  # noqa: BLE001 — no index → nothing to heal
+        print(f"reindex: index unavailable ({exc}); nothing to do")
+        return {"kept": 0, "dropped": []}
+
+    kept, dropped = [], []
+    for e in entries:
+        if _exists(e["file"]):
+            kept.append(e)
+        else:
+            dropped.append(e.get("name", e.get("file", "?")))
+
+    if dropped:
+        _write_bytes(
+            "index.json",
+            json.dumps(kept, ensure_ascii=False, indent=2).encode("utf-8"),
+            content_type="application/json",
+        )
+        print(f"reindex: dropped {len(dropped)} dead entries -> {dropped}")
+
+    load_all(_REGIONS_DIR)  # reload the cleaned index into memory
+    return {"kept": len(kept), "dropped": dropped}
 
 
 def load_all(regions_dir: str = _REGIONS_DIR):

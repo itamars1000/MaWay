@@ -129,6 +129,18 @@ def admin_reload(token: str = Query(...)):
     return {"ok": True, "regions": count}
 
 
+@app.post("/admin/reindex")
+def admin_reindex(token: str = Query(...)):
+    """Self-heal index.json: drop entries whose .pkl is missing from storage,
+    rewrite the index, and reload it. Use after a region pickle is deleted.
+    Guarded by ADMIN_TOKEN."""
+    expected = os.getenv("ADMIN_TOKEN", "").strip()
+    if not expected or token != expected:
+        raise HTTPException(status_code=403, detail="forbidden")
+    result = graph_store.reindex()
+    return {"ok": True, **result}
+
+
 @app.get("/loop")
 def loop(
     lat: float = Query(..., ge=-90, le=90),
