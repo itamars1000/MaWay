@@ -128,7 +128,7 @@ export const TRANSLATIONS = {
 
     // Engine errors
     'err.no-start': 'קבע נקודת התחלה (אפשר מיקום או חפש כתובת).',
-    'err.offline': 'מנוע המסלולים לא זמין — ודא שהשרת רץ (uvicorn route_engine.api:app).',
+    'err.offline': 'שרת המסלולים לא זמין כרגע — נסה שוב בעוד רגע.',
     'err.http': 'יצירת המסלול נכשלה. נסה מרחק אחר או שוב בעוד רגע.',
     'err.empty': 'לא נמצא מסלול מתאים מהנקודה הזו. נסה מרחק אחר.',
     'err.no-quality': 'לא נמצא מסלול עם פחות מ-3 פניות לק"מ באזור הזה. נסה מרחק אחר או נקודת התחלה אחרת.',
@@ -269,7 +269,7 @@ export const TRANSLATIONS = {
 
     // Engine errors
     'err.no-start': 'Set a start point (use location or search for an address).',
-    'err.offline': 'Route engine unavailable — ensure the server is running.',
+    'err.offline': 'Route server unavailable — please try again in a moment.',
     'err.http': 'Route generation failed. Try a different distance or try again.',
     'err.empty': 'No suitable route found from this point. Try a different distance.',
     'err.no-quality': 'No route with fewer than 3 turns/km found in this area. Try a different distance or start point.',
