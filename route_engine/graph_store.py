@@ -275,7 +275,11 @@ def region_for(lat, lng):
     for m in _INDEX:
         if not m.contains(lat, lng):
             continue
-        r = _get_region(m.file)
+        try:
+            r = _get_region(m.file)
+        except Exception as exc:  # noqa: BLE001 — missing/corrupt pkl → skip, fall through to on-demand
+            print(f"region {m.name!r}: skipping missing/unreadable pkl ({exc})")
+            continue
         if r.coverage_gap_m(lat, lng) <= _MAX_COVERAGE_GAP_M:
             return r
     return None
