@@ -20,10 +20,11 @@ The live product is **`runroute-web` (UI) talking to `route_engine` (HTTP API)**
 The Flutter app in `lib/` is an earlier shell of the same UI; treat it as a
 separate, parallel implementation — changes to one do not propagate to the other.
 
-Each subproject has its own README with deeper detail:
+The root [README.md](README.md) is the whole-product overview. Each subproject
+also has its own README with deeper detail:
 [runroute-web/README.md](runroute-web/README.md) (Hebrew),
-[route_engine/README.md](route_engine/README.md), and the root
-[README.md](README.md) (Flutter shell).
+[route_engine/README.md](route_engine/README.md), and the Flutter shell doc
+[README.flutter.md](README.flutter.md).
 
 ## How web ↔ engine connect
 
@@ -85,7 +86,7 @@ flutter create .     # generates android/, ios/ around existing lib/
 flutter pub get
 flutter analyze
 flutter test
-flutter run          # live map tiles need a Google Maps API key (see README.md)
+flutter run          # live map tiles need a Google Maps API key (see README.flutter.md)
 ```
 
 ## Architecture notes
@@ -121,8 +122,8 @@ React Context: [src/state/AppState.jsx](runroute-web/src/state/AppState.jsx)
 ### Flutter layering (`lib/`)
 Mirrors the web layering: `HomeScreen` builds a `Stack` of `MapView` +
 `FloatingHeader` + `DraggableScrollableSheet`. State is a single `AppState`
-`ChangeNotifier` provided via `provider`. See [README.md](README.md) for the
-file-by-file map.
+`ChangeNotifier` provided via `provider`. See [README.flutter.md](README.flutter.md)
+for the file-by-file map.
 
 ## Conventions
 - **Hebrew RTL** is the product language — user-facing strings, layout, and the
@@ -137,6 +138,6 @@ file-by-file map.
 - `runroute-web/.env` — `VITE_ENGINE_URL` (engine base URL); legacy `VITE_ORS_API_KEY`.
   Copy from `.env.example`.
 - Google Maps API key for the Flutter app goes in the generated `android/`/`ios/`
-  platform files (instructions in [README.md](README.md)).
+  platform files (instructions in [README.flutter.md](README.flutter.md)).
 - `route.geojson` (root) and `cache/`, `route_engine/regions/_cache/` hold
   generated/cached output — not hand-edited source.
