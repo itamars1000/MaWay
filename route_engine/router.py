@@ -35,6 +35,14 @@ from .geometry import feature_from_coords
 BETA = 800.0
 REUSE_PENALTY_M = 4000.0   # discourage retracing → return legs go parallel
 N_WAYPOINTS = 4            # default single shape (square) for direct calls
+# Distance-correction tuning (see _next_size + the per-shape rescue loop). Aim a
+# touch above target so loops land ≥ target; never undershoot the step when short;
+# and, if a shape never reaches target within max_passes, grow hard a few more
+# times before settling for a below-target loop (keeps `below_requested` rare).
+SIZE_AIM = 1.05            # correction aims at SIZE_AIM·target
+GROW_MIN = 1.12            # min size growth per pass while still under target
+RESCUE_GROW = 1.3          # size multiplier per rescue pass
+RESCUE_PASSES = 3          # extra passes when target was never reached
 # Shapes tried per request; the best is chosen. 2 = an out-and-back "lobe"
 # (very few turns, narrow) which wins in maze cities like Be'er Sheva; 3/4 are
 # wider loops that win in grid cities like Tel Aviv. The lobe is weighted
@@ -163,18 +171,27 @@ def _next_size(prev, val, actual, target_m):
     so this converges much faster than the multiplicative update, which stays
     as the fallback when the secant is degenerate or jumps absurdly.
 
+    Aims slightly ABOVE target (`goal`) so convergence lands ≥ target. When the
+    last loop came up SHORT, never undershoot the step: grow the size by at least
+    `GROW_MIN` so passes aren't wasted on timid nudges that stay under target.
+
     `prev` is the previous (size, distance) pair or None."""
-    goal = 1.03 * target_m
+    goal = SIZE_AIM * target_m
     mult = val * goal / max(actual, 1.0)
     if prev is None:
-        return mult
-    pval, pactual = prev
-    if abs(actual - pactual) < 1.0:        # flat — secant undefined
-        return mult
-    sec = val + (goal - actual) * (pval - val) / (pactual - actual)
-    if not (0.3 * val <= sec <= 3.0 * val):  # absurd jump — don't trust it
-        return mult
-    return sec
+        nxt = mult
+    else:
+        pval, pactual = prev
+        if abs(actual - pactual) < 1.0:        # flat — secant undefined
+            nxt = mult
+        else:
+            sec = val + (goal - actual) * (pval - val) / (pactual - actual)
+            # absurd jump — don't trust the secant, fall back to multiplicative
+            nxt = sec if 0.3 * val <= sec <= 3.0 * val else mult
+    # When short, guarantee meaningful growth (don't shrink, don't barely nudge).
+    if actual < target_m:
+        return max(nxt, val * GROW_MIN)
+    return nxt
 
 
 # ---------------------------------------------------------------------------
@@ -284,6 +301,62 @@ def _add_quality_fracs(region, full, feat):
 
 
 # ---------------------------------------------------------------------------
+# Distance correction: drive a shape's size until its loop reaches target
+# ---------------------------------------------------------------------------
+
+def _drive_correction(attempt, size0, target_m, max_passes, floor=0.0):
+    """Step a shape's size parameter until its loop length reaches `target_m`.
+
+    `attempt(size) -> feature | None` builds one loop at the given size (None when
+    that size has no routable loop). Tracks the SMALLEST loop ≥ target (best_over)
+    and the LARGEST loop < target (best_under), stepping the size via `_next_size`.
+
+    If `max_passes` runs out without ever reaching target, run up to RESCUE_PASSES
+    extra passes that grow the size hard (×RESCUE_GROW) before settling for a short
+    loop — this is what keeps short (`below_requested`) returns rare. Returns the
+    best feature (≥ target preferred, else longest < target), or None.
+
+    `floor` is a minimum size (the ellipse modes need semi-major > half the A–B gap).
+    """
+    best_over = None      # (feat, dist) smallest distance >= target
+    best_under = None     # (feat, dist) largest distance < target
+    hist = None           # previous (size, actual) for the secant step
+    size = max(floor, size0)
+    for _ in range(max_passes):
+        feat = attempt(size)
+        if feat is None:
+            break
+        actual = feat["properties"]["distance_m"]
+        if actual >= target_m:
+            if best_over is None or actual < best_over[1]:
+                best_over = (feat, actual)
+            if actual <= 1.08 * target_m:
+                break  # close enough from above — stop shrinking
+        elif best_under is None or actual > best_under[1]:
+            best_under = (feat, actual)
+        nxt = max(floor, _next_size(hist, size, actual, target_m))
+        hist = (size, actual)
+        size = nxt
+
+    grew = 0
+    while best_over is None and grew < RESCUE_PASSES:
+        size = max(floor, size * RESCUE_GROW)
+        feat = attempt(size)
+        if feat is None:
+            break
+        actual = feat["properties"]["distance_m"]
+        if actual >= target_m:
+            best_over = (feat, actual)
+        elif best_under is None or actual > best_under[1]:
+            best_under = (feat, actual)
+        grew += 1
+
+    if best_over:
+        return best_over[0]
+    return best_under[0] if best_under else None
+
+
+# ---------------------------------------------------------------------------
 # One polygon loop (with iterative distance correction)
 # ---------------------------------------------------------------------------
 
@@ -295,19 +368,8 @@ def _run_polygon(region, start_primal, start_pt, target_m, phi0, n, beta,
     if not seeds:
         raise RouteError("no outgoing segments at start node")
 
-    radius = target_m / (2.0 * math.pi)
-
-    # Prefer the SMALLEST loop that is >= target (never go short, but don't
-    # overshoot wildly); fall back to the LONGEST loop < target if no pass
-    # reaches the requested length. `max_passes` is lowered for long routes
-    # (each correction pass is several long, expensive A* legs).
-    best_over = None      # (feat, dist) smallest distance >= target
-    best_under = None     # (feat, dist) largest distance < target
-    size_hist = None      # previous (radius, actual) for the secant step
-    for _ in range(max_passes):
+    def _attempt(radius):
         waypoints = _polygon_waypoints(start_pt, radius, phi0, n)
-        wp_idx = [region.nearest_node_to(wp) for wp in waypoints]
-
         # Seed with the outgoing segment pointing toward the first waypoint.
         source = min(
             seeds,
@@ -315,27 +377,22 @@ def _run_polygon(region, start_primal, start_pt, target_m, phi0, n, beta,
                 (region.end_lat[i], region.end_lng[i]), waypoints[0]
             ),
         )
-
         full = []
         prev_pt = start_pt
         cur = source
         used = set()           # segments already used → return legs go parallel
-        ok = True
-        for wp, widx in zip(waypoints, wp_idx):
+        for wp in waypoints:
             b = geo_bearing(prev_pt, wp)
-            wp_goal = widx       # capture for the goal lambda
+            widx = region.nearest_node_to(wp)
             try:
-                leg = _run_leg(region, g, cur, lambda i, t=wp_goal: i == t,
+                leg = _run_leg(region, g, cur, lambda i, t=widx: i == t,
                                wp, b, beta, used)
             except RouteError:
-                ok = False
-                break
+                return None
             full = leg if not full else full + leg[1:]
             used |= {region.node_useg[i] for i in leg}
             cur = leg[-1]
             prev_pt = wp
-        if not ok:
-            break
 
         # Close the loop: last waypoint back to a segment ending at start node,
         # avoiding the streets already used (so it returns on a parallel route).
@@ -347,26 +404,13 @@ def _run_polygon(region, start_primal, start_pt, target_m, phi0, n, beta,
                 start_pt, b, beta, used,
             )
         except RouteError:
-            break
+            return None
         full = full + closing[1:]
+        return _add_quality_fracs(
+            region, full, feature_from_coords(_stitch(region, full)))
 
-        feat = _add_quality_fracs(region, full, feature_from_coords(_stitch(region, full)))
-
-        actual = feat["properties"]["distance_m"]
-        if actual >= target_m:
-            if best_over is None or actual < best_over[1]:
-                best_over = (feat, actual)
-            if actual <= 1.08 * target_m:
-                break  # close enough from above — stop shrinking the radius
-        else:
-            if best_under is None or actual > best_under[1]:
-                best_under = (feat, actual)
-        # Aim slightly ABOVE target so the search converges from above, not below.
-        new_radius = _next_size(size_hist, radius, actual, target_m)
-        size_hist = (radius, actual)
-        radius = new_radius
-
-    best = best_over[0] if best_over else (best_under[0] if best_under else None)
+    best = _drive_correction(
+        _attempt, target_m / (2.0 * math.pi), target_m, max_passes)
     if best is None:
         raise RouteError("polygon routing failed")
     return best
@@ -397,12 +441,8 @@ def _run_via_loop(region, start_primal, start_pt, target_m, via_pt, theta_deg,
     base = geo_bearing(start_pt, via_pt)
     th = math.radians(theta_deg)
     half = d / 2.0
-    s = (target_m - d) / 2.0          # semi-major (each free side ~ s)
 
-    best_over = None
-    best_under = None
-    size_hist = None      # previous (s, actual) for the secant step
-    for _ in range(max_passes):
+    def _attempt(s):
         b_ax = math.sqrt(max(s * s - half * half, 0.0))   # ellipse semi-minor
         mid = destination(start_pt[0], start_pt[1], base, half)
         along = s * math.cos(th)       # signed offset along start→P axis
@@ -429,26 +469,16 @@ def _run_via_loop(region, start_primal, start_pt, target_m, via_pt, theta_deg,
                             lambda i: region.v_primal[i] == start_primal,
                             start_pt, geo_bearing(q, start_pt), beta, used)
         except RouteError:
-            break
+            return None
         full = leg1 + leg2[1:] + leg3[1:]
-
-        feat = _add_quality_fracs(region, full, feature_from_coords(_stitch(region, full)))
+        feat = _add_quality_fracs(
+            region, full, feature_from_coords(_stitch(region, full)))
         feat["properties"]["via_ok"] = True
+        return feat
 
-        actual = feat["properties"]["distance_m"]
-        if actual >= target_m:
-            if best_over is None or actual < best_over[1]:
-                best_over = (feat, actual)
-            if actual <= 1.08 * target_m:
-                break
-        else:
-            if best_under is None or actual > best_under[1]:
-                best_under = (feat, actual)
-        new_s = _next_size(size_hist, s, actual, target_m)
-        size_hist = (s, actual)
-        s = max(half + 1.0, new_s)   # keep s > half so the ellipse is real
-
-    best = best_over[0] if best_over else (best_under[0] if best_under else None)
+    # semi-major start (each free side ~ s); kept > half so the ellipse is real.
+    best = _drive_correction(_attempt, (target_m - d) / 2.0, target_m,
+                             max_passes, floor=half + 1.0)
     if best is None:
         raise RouteError("no_via: could not route a loop through the point")
     return best
@@ -491,11 +521,8 @@ def _run_path(region, start_primal, start_pt, end_primal, end_pt, target_m,
     base = geo_bearing(start_pt, end_pt)
     th = math.radians(theta_deg)
     half = d / 2.0
-    s = target_m / 2.0       # semi-major
-    best_over = None
-    best_under = None
-    size_hist = None      # previous (s, actual) for the secant step
-    for _ in range(max_passes):
+
+    def _attempt(s):
         b_ax = math.sqrt(max(s * s - half * half, 0.0))
         mid = destination(start_pt[0], start_pt[1], base, half)
         along = s * math.cos(th)
@@ -518,22 +545,11 @@ def _run_path(region, start_primal, start_pt, end_primal, end_pt, target_m,
                             lambda i: region.v_primal[i] == end_primal,
                             end_pt, geo_bearing(w, end_pt), beta, used)
         except RouteError:
-            break
-        feat = _build(leg1 + leg2[1:])
-        actual = feat["properties"]["distance_m"]
-        if actual >= target_m:
-            if best_over is None or actual < best_over[1]:
-                best_over = (feat, actual)
-            if actual <= 1.08 * target_m:
-                break
-        else:
-            if best_under is None or actual > best_under[1]:
-                best_under = (feat, actual)
-        new_s = _next_size(size_hist, s, actual, target_m)
-        size_hist = (s, actual)
-        s = max(half + 1.0, new_s)
+            return None
+        return _build(leg1 + leg2[1:])
 
-    best = best_over[0] if best_over else (best_under[0] if best_under else None)
+    best = _drive_correction(_attempt, target_m / 2.0, target_m,
+                             max_passes, floor=half + 1.0)
     if best is None:
         raise RouteError("no_path: could not route from A to B at this length")
     return best
