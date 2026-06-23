@@ -21,7 +21,7 @@ import osmnx as ox
 from shapely import STRtree
 from shapely.geometry import Point
 
-from .dual_graph import build_dual_graph, _edge_latlng
+from .dual_graph import build_dual_graph, _edge_latlng, _MINOR_AVOID_CLASSES
 
 ox.settings.use_cache = True
 ox.settings.log_console = False
@@ -46,6 +46,19 @@ _FOOT_DENIED = {"no", "private", "restricted"}
 _FOOT_OVERRIDE = {"yes", "designated", "official", "permissive"}
 
 
+def _remove_dead_ends(G):
+    """Iteratively drop degree-1 nodes (dead-ends) and isolates. Reused after the
+    avoid-zone edge removal, which can orphan stubs."""
+    while True:
+        und = G.to_undirected()
+        dead = [n for n in list(G.nodes) if und.degree(n) <= 1]
+        if not dead:
+            break
+        G.remove_nodes_from(dead)
+    G.remove_nodes_from(list(nx.isolates(G)))
+    return G
+
+
 def prune(G):
     """Drop motorways/trunks, foot-restricted ways, then iteratively remove dead-ends."""
     G.remove_edges_from(
@@ -60,14 +73,7 @@ def prune(G):
         or (d.get("access") in {"no", "private"}
             and d.get("foot") not in _FOOT_OVERRIDE)
     ])
-    while True:
-        und = G.to_undirected()
-        dead = [n for n in list(G.nodes) if und.degree(n) <= 1]
-        if not dead:
-            break
-        G.remove_nodes_from(dead)
-    G.remove_nodes_from(list(nx.isolates(G)))
-    return G
+    return _remove_dead_ends(G)
 
 
 def consolidate(G):
@@ -206,6 +212,80 @@ def scenic_edges_point(G, center, radius):
     return _scenic_edges_from_geoms(G, *_filter_scenic_geoms(wdf, pdf))
 
 
+# --- Avoid zones: campus/hospital/industrial/farmland polygons + railway lines ---
+# Minor pedestrian/track edges (footway/path/…) whose midpoint falls inside one of
+# these zones, OR hugs a railway line, are REMOVED from the graph before routing —
+# runners don't want campus innards, rail-side strips, warehouse alleys, or field
+# tracks. Through-roads in the same zone are kept (connectivity); see
+# `_avoid_edges_from_geoms`.
+_AVOID_AREA_TAGS = {
+    "amenity": ["university", "college", "school", "kindergarten", "hospital"],
+    "landuse": ["industrial", "farmland", "farmyard", "orchard", "vineyard"],
+}
+_RAILWAY_TAGS = {"railway": ["rail", "light_rail", "subway", "tram",
+                             "narrow_gauge", "monorail"]}
+# ~25 m in degrees — only paths truly hugging the tracks are caught (not a street
+# that merely passes near a station).
+_RAIL_BUFFER_DEG = 0.00025
+
+
+def _polys_of(gdf):
+    if gdf is None:
+        return []
+    return [g for g in gdf.geometry
+            if g is not None and g.geom_type in ("Polygon", "MultiPolygon")]
+
+
+def _lines_of(gdf):
+    if gdf is None:
+        return []
+    return [g for g in gdf.geometry
+            if g is not None and g.geom_type in ("LineString", "MultiLineString")]
+
+
+def _avoid_edges_from_geoms(G, zone_polys, rail_lines):
+    """Edge keys (u,v,k) to REMOVE: a *minor* class (footway/path/track/…) whose
+    midpoint is inside an avoid zone OR within _RAIL_BUFFER_DEG of a railway line.
+    Through-roads are never returned (kept for connectivity)."""
+    if not zone_polys and not rail_lines:
+        return set()
+    zone_tree = STRtree(zone_polys) if zone_polys else None
+    rail_tree = STRtree(rail_lines) if rail_lines else None
+
+    avoid = set()
+    for u, v, key, data in G.edges(keys=True, data=True):
+        hw = data.get("highway")
+        hw = hw[0] if isinstance(hw, list) else hw
+        if hw not in _MINOR_AVOID_CLASSES:
+            continue  # keep real through-roads even inside a zone
+        coords = _edge_latlng(G, u, v, data)
+        mid = coords[len(coords) // 2]  # (lat, lng)
+        pt = Point(mid[1], mid[0])
+        in_zone = zone_tree is not None and len(
+            zone_tree.query(pt, predicate="intersects")) > 0
+        near_rail = rail_tree is not None and len(
+            rail_tree.query(pt.buffer(_RAIL_BUFFER_DEG), predicate="intersects")) > 0
+        if in_zone or near_rail:
+            avoid.add((u, v, key))
+    print(f"      avoid edges: {len(avoid)} "
+          f"(zones={len(zone_polys)}, rail lines={len(rail_lines)})")
+    return avoid
+
+
+def avoid_edges(G, place):
+    """Avoid edge keys for a named place (offline builder)."""
+    zdf = _features_place(place, _AVOID_AREA_TAGS)
+    rdf = _features_place(place, _RAILWAY_TAGS)
+    return _avoid_edges_from_geoms(G, _polys_of(zdf), _lines_of(rdf))
+
+
+def avoid_edges_point(G, center, radius):
+    """Avoid edge keys for an on-demand tile (center=(lat,lng), radius=m)."""
+    zdf = _features_point(center, radius, _AVOID_AREA_TAGS)
+    rdf = _features_point(center, radius, _RAILWAY_TAGS)
+    return _avoid_edges_from_geoms(G, _polys_of(zdf), _lines_of(rdf))
+
+
 # Scenic anchors are scenic nodes' end-coords downsampled to a ~500 m grid;
 # they're the "destinations" the router aims a few candidates at.
 _ANCHOR_GRID_DEG = 0.0045   # ~500 m
@@ -333,6 +413,12 @@ def main(argv=None) -> int:
             G = prune(G)  # consolidation can create new short dead-ends
         except Exception as exc:  # noqa: BLE001
             print(f"      consolidation skipped ({exc})")
+    # Remove minor paths inside campus/hospital/industrial/farmland zones or
+    # hugging a railway, then re-clean any dead-ends the removal created.
+    avoid = avoid_edges(G, args.place)
+    if avoid:
+        G.remove_edges_from(avoid)
+        _remove_dead_ends(G)
     print(f"      pruned: {G.number_of_nodes()} nodes / {G.number_of_edges()} edges")
 
     print("[3/4] building dual graph + turn costs …")

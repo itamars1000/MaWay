@@ -126,6 +126,14 @@ PLEASANT_CLASSES = {
     "footway", "path", "pedestrian", "cycleway",
     "living_street", "residential",
 }
+# Minor pedestrian/track classes that get REMOVED when they fall inside an
+# "avoid zone" (campus/hospital/industrial/farmland) or hug a railway line. Only
+# these are pruned — real through-roads (residential/tertiary/…) are kept even
+# inside a zone so the network stays connected (see builder._avoid_edges_from_geoms).
+_MINOR_AVOID_CLASSES = {
+    "footway", "path", "pedestrian", "steps",
+    "track", "bridleway", "cycleway", "service",
+}
 # Busy roads — pleasant only as a last resort.
 BUSY_CLASSES = {"primary", "primary_link", "trunk", "trunk_link",
                 "secondary", "secondary_link"}

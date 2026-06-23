@@ -35,6 +35,16 @@ _WATER_LINE = {
 _PARK = {"leisure": {"park", "nature_reserve"}, "landuse": {"forest"}}
 _FEATURE_KEYS = ("leisure", "landuse", "natural", "water", "waterway")
 
+# Avoid zones (mirror builder._AVOID_AREA_TAGS / _RAILWAY_TAGS): campus/hospital/
+# industrial/farmland polygons + railway lines. Minor paths inside/near these are
+# removed from the graph (see builder._avoid_edges_from_geoms).
+_AVOID_AREA = {
+    "amenity": {"university", "college", "school", "kindergarten", "hospital"},
+    "landuse": {"industrial", "farmland", "farmyard", "orchard", "vineyard"},
+}
+_AVOID_AREA_KEYS = ("amenity", "landuse")
+_RAILWAY_VALS = {"rail", "light_rail", "subway", "tram", "narrow_gauge", "monorail"}
+
 
 def _matches(tags, spec) -> bool:
     for key, vals in spec.items():
@@ -109,6 +119,50 @@ def features_from_pbf(pbf_path: str, bbox):
     return green_polys, water_geoms, park_polys
 
 
+def avoid_features_from_pbf(pbf_path: str, bbox):
+    """Extract avoid-zone polygons (campus/hospital/industrial/farmland) and
+    railway lines within bbox. Returns (zone_polys, rail_lines) ready for
+    builder._avoid_edges_from_geoms."""
+    zone_polys, rail_lines = [], []
+    wkb = osmium.geom.WKBFactory()
+
+    # Pass 1: assembled zone areas.
+    areas = (
+        osmium.FileProcessor(pbf_path)
+        .with_areas()
+        .with_filter(osmium.filter.KeyFilter(*_AVOID_AREA_KEYS))
+    )
+    for o in areas:
+        if not (hasattr(o, "is_area") and o.is_area()):
+            continue
+        if not _matches(o.tags, _AVOID_AREA):
+            continue
+        try:
+            g = shapely.from_wkb(bytes.fromhex(wkb.create_multipolygon(o)))
+        except Exception:  # noqa: BLE001 — skip un-assemblable areas
+            continue
+        if not g.is_empty and _bbox_overlaps(g, bbox):
+            zone_polys.append(g)
+
+    # Pass 2: railway LINES (ways, not areas).
+    lines = (
+        osmium.FileProcessor(pbf_path)
+        .with_locations()
+        .with_filter(osmium.filter.KeyFilter("railway"))
+    )
+    for o in lines:
+        if not o.is_way() or o.tags.get("railway") not in _RAILWAY_VALS:
+            continue
+        pts = [(nd.location.lon, nd.location.lat) for nd in o.nodes if nd.location.valid()]
+        if len(pts) < 2:
+            continue
+        g = LineString(pts)
+        if _bbox_overlaps(g, bbox):
+            rail_lines.append(g)
+
+    return zone_polys, rail_lines
+
+
 def bbox_for(lat: float, lng: float, distance_m: float):
     """A tile bbox (min_lon,min_lat,max_lon,max_lat) sized to a loop's reach —
     mirrors ondemand's radius (the far polygon waypoint sits ~0.32·distance)."""
@@ -146,7 +200,7 @@ def build_region_data(lat: float, lng: float, distance_m: float, place=None,
     from . import builder as _b
     from .builder import (
         prune, _green_edges_from_polys, _scenic_edges_from_geoms,
-        _MIN_PARK_AREA_DEG2, serialize,
+        _avoid_edges_from_geoms, _remove_dead_ends, _MIN_PARK_AREA_DEG2, serialize,
     )
     from .dual_graph import build_dual_graph
 
@@ -165,6 +219,13 @@ def build_region_data(lat: float, lng: float, distance_m: float, place=None,
             G = prune(_b.consolidate(G))  # merge junctions → far smaller graph
         except Exception as exc:  # noqa: BLE001
             print(f"      consolidation skipped ({exc})")
+    # Remove minor paths inside campus/hospital/industrial/farmland zones or
+    # hugging a railway, then re-clean dead-ends the removal created.
+    zone_polys, rail_lines = avoid_features_from_pbf(src, bbox)
+    avoid = _avoid_edges_from_geoms(G, zone_polys, rail_lines)
+    if avoid:
+        G.remove_edges_from(avoid)
+        _remove_dead_ends(G)
     green_polys, water_geoms, park_polys = features_from_pbf(src, bbox)
     green_keys = _green_edges_from_polys(G, green_polys)
     big_parks = [g for g in park_polys if g.area >= _MIN_PARK_AREA_DEG2]
@@ -215,9 +276,13 @@ def graph_from_pbf(pbf_path: str, bbox) -> nx.MultiDiGraph:
         if not touch or len(coords) < 2:
             continue
         tags = {"highway": hw}
-        surf = _tag(o.tags.get("surface"))
-        if surf:
-            tags["surface"] = surf
+        # Carry the tags the dual-graph build / prune actually read. Without these
+        # the cloud (pbf) tiles silently lost foot/access pruning and the sidewalk
+        # signal that the osmnx path already had.
+        for key in ("surface", "foot", "access", "sidewalk"):
+            val = _tag(o.tags.get(key))
+            if val:
+                tags[key] = val
         ways.append((coords, tags))
         for nid, lat, lon in coords:
             node_count[nid] = node_count.get(nid, 0) + 1
@@ -246,11 +311,14 @@ def graph_from_pbf(pbf_path: str, bbox) -> nx.MultiDiGraph:
                     continue
                 fwd = LineString([(lon, lat) for lat, lon in line])      # x=lon, y=lat
                 rev = LineString([(lon, lat) for lat, lon in reversed(line)])
+                # surface/foot/access/sidewalk carried through for prune + signals.
+                extra = {k: tags[k] for k in ("surface", "foot", "access", "sidewalk")
+                         if k in tags}
                 # Walking is bidirectional → add both directions.
                 G.add_edge(u, v, highway=tags["highway"], length=length,
-                           geometry=fwd, **({"surface": tags["surface"]} if "surface" in tags else {}))
+                           geometry=fwd, **extra)
                 G.add_edge(v, u, highway=tags["highway"], length=length,
-                           geometry=rev, **({"surface": tags["surface"]} if "surface" in tags else {}))
+                           geometry=rev, **extra)
 
     for nid in list(G.nodes):
         lat, lon = node_ll[nid]

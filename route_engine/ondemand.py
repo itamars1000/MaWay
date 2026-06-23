@@ -35,7 +35,8 @@ _LOCK = threading.Lock()
 # v7: loop tiles are distance-INDEPENDENT (one generous tile per cell serves
 # every loop length) so changing the requested distance never rebuilds the area.
 # v8: rough-paved + sidewalked arrays added; foot=no/private edges pruned at build.
-_TILE_VERSION = "v8"
+# v9: minor paths inside campus/hospital/industrial/farmland or hugging rail removed.
+_TILE_VERSION = "v9"
 
 # Radius of a loop tile. One generous, distance-independent tile per ~1 km cell:
 # big enough that loops up to the API max (~21 km, reach ≈ distance/π) stay inside
@@ -92,6 +93,16 @@ def get_or_build(lat, lng, distance_m, span_m=None):
             network_type="walk", simplify=True,
         )
         G = builder.prune(G)
+        # Remove minor paths inside campus/hospital/industrial/farmland zones or
+        # hugging a railway (then re-clean dead-ends). Best-effort: a feature-query
+        # failure must not block the tile build.
+        try:
+            avoid = builder.avoid_edges_point(G, (cell_lat, cell_lng), radius)
+            if avoid:
+                G.remove_edges_from(avoid)
+                builder._remove_dead_ends(G)
+        except Exception as exc:  # noqa: BLE001
+            print(f"      (tile avoid-zones unavailable: {exc})")
         # Scenic (sea/river/park) for this tile so the sea/park preference and
         # landmark-seeking work everywhere — not just precomputed cities. One
         # extra feature query on the first build only (then cached).
