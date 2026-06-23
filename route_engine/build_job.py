@@ -62,7 +62,11 @@ def build_ondemand_tile(key: str, lat: float, lng: float, distance_m: float,
     region_name = res[0] if res else None
     label = name or (f"{region_name} ({lat:.3f},{lng:.3f})" if region_name
                      else f"area {lat:.3f},{lng:.3f}")
-    file = f"{graph_store._ONDEMAND_PREFIX}{_slugify(region_name)}_{key}.pkl"
+    # Shorten multi-country Geofabrik ids for a tidier bucket name, e.g.
+    # "israel-and-palestine" -> "israel" (filename only; the marker keeps the
+    # full `file`, so lookups are unaffected).
+    slug = _slugify(region_name).split("-and-")[0]
+    file = f"{graph_store._ONDEMAND_PREFIX}{slug}_{key}.pkl"
 
     graph_store.write_marker(key, {"status": "building", "name": label,
                                    "updated_at": _now()})
