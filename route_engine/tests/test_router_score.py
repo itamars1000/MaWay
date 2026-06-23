@@ -2,7 +2,9 @@
 network: _score / _hill_badness read plain feature dicts and learning defaults;
 _finalize tests monkeypatch elevation.add_elevation so no request is made."""
 from route_engine import router
-from route_engine.router import _finalize, _hill_badness, _score
+from route_engine.router import (
+    HILL_NORM_M_PER_KM, _finalize, _hill_badness, _score,
+)
 
 
 def _feature(distance_m, turns_per_km, ascent_m=None, **extra):
@@ -29,8 +31,9 @@ def test_hill_badness_missing_is_zero():
 
 
 def test_hill_badness_flat_is_small():
-    # 5 km loop, 25 m climb → 5 m/km → 5/50 = 0.1
-    assert abs(_hill_badness(_feature(5000, 2.0, ascent_m=25)) - 0.1) < 1e-9
+    # 5 km loop, 25 m climb → 5 m/km → 5 / HILL_NORM_M_PER_KM (parametric on tuning).
+    expected = 5.0 / HILL_NORM_M_PER_KM
+    assert abs(_hill_badness(_feature(5000, 2.0, ascent_m=25)) - expected) < 1e-9
 
 
 def test_hill_badness_caps_at_one():

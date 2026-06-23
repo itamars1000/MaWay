@@ -85,12 +85,15 @@ SCORE_W_ROUGH = 0.25
 # Sidewalk/foot-designated infrastructure — prefer routes that have it.
 # Subtracted so higher sidewalked_frac → lower (better) score.
 SCORE_W_SIDEWALK = 0.15
-# Prefer flatter loops among qualifying routes. Fixed (not learned), modest — a
-# runner's first question is "flat or hilly?". Elevation is fetched best-effort
-# at finalize time; a route with no ascent data gets 0 penalty (no behaviour
-# change when Open-Meteo is unreachable).
-SCORE_W_HILL = 0.25
-HILL_NORM_M_PER_KM = 50.0  # climb/km mapping to full badness (1.0); flat≈5-10
+# Prefer flatter loops among qualifying routes (a runner's first question is
+# "flat or hilly?"). Fixed (not learned). Strengthened after live verification
+# showed the flattest loop rarely won in hilly cities: a meaningful weight + a
+# tighter norm so moderate climbs already register. Only re-orders routes that
+# already meet the distance floor & turn cap, so it can't trade those away.
+# Elevation is best-effort — no ascent data → 0 penalty (unchanged when
+# Open-Meteo is unreachable).
+SCORE_W_HILL = 0.5
+HILL_NORM_M_PER_KM = 30.0  # climb/km mapping to full badness (1.0); flat≈5-10
 MAX_TURNS_PER_KM = 3.0     # hard quality cap returned to the client
 # Max fraction of a returned route that may run on unpaved/off-road ways. Routes
 # above this are rejected when a paved alternative exists (graceful fallback).
