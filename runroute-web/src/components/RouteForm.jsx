@@ -206,7 +206,7 @@ export default function RouteForm() {
       {/* distance */}
       <div>
         <div className="distance-head">
-          <span className="section-label">{t('form.distance')}</span>
+          <span id="dist-label" className="section-label">{t('form.distance')}</span>
           <span className="dist-value">
             <b>{Math.round(selectedDistance)}</b> <span>{t('units.km')}</span>
           </span>
@@ -219,6 +219,8 @@ export default function RouteForm() {
           step={1}
           value={selectedDistance}
           onChange={(e) => setSelectedDistance(Number(e.target.value))}
+          aria-labelledby="dist-label"
+          aria-valuetext={`${Math.round(selectedDistance)} ${t('units.km')}`}
           style={{ '--fill': `${fillPct}%` }}
         />
         <div className="slider-ticks">
