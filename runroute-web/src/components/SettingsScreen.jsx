@@ -11,7 +11,7 @@ const APP_VERSION = '0.1.0';
  * Opened from the header gear; closed with the back chevron.
  */
 export default function SettingsScreen() {
-  const { open, closeSettings, mapStyle, setMapStyle, lang, setLang } = useSettings();
+  const { open, closeSettings, mapStyle, setMapStyle, lang, setLang, openPrivacy } = useSettings();
   const { t } = useT();
   const { user, authEnabled, signInWithGoogle, signOut } = useAuth();
   const { savedRoutes, clearAllSavedRoutes } = useAppState();
@@ -169,6 +169,13 @@ export default function SettingsScreen() {
               <img className="settings-about-logo" src="/maway-logo.png" alt="MaWay" />
               <p className="settings-note">{t('settings.aboutNote')}</p>
               <p className="settings-version">{t('settings.version', { ver: APP_VERSION })}</p>
+              <button
+                type="button"
+                className="settings-btn settings-btn--ghost"
+                onClick={openPrivacy}
+              >
+                {t('privacy.link')}
+              </button>
             </div>
           </div>
         </section>

@@ -6,6 +6,7 @@ const SettingsContext = createContext(null);
 
 export function SettingsProvider({ children }) {
   const [open, setOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [mapStyle, setMapStyleState] = useState(getMapStyleId);
   const [lang, setLangState] = useState(getLang);
 
@@ -31,6 +32,9 @@ export function SettingsProvider({ children }) {
     open,
     openSettings: () => setOpen(true),
     closeSettings: () => setOpen(false),
+    privacyOpen,
+    openPrivacy: () => setPrivacyOpen(true),
+    closePrivacy: () => setPrivacyOpen(false),
     mapStyle,
     setMapStyle,
     lang,

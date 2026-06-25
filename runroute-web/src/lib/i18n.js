@@ -126,6 +126,24 @@ export const TRANSLATIONS = {
     'safety.routeNote': 'מסלול מוצע — שימו לב לתנועה ולסביבה.',
     'safety.settingsTitle': 'בטיחות ואחריות',
 
+    // Privacy policy
+    'privacy.title': 'מדיניות פרטיות',
+    'privacy.link': 'מדיניות פרטיות',
+    'privacy.updated': 'עודכן לאחרונה: יוני 2026',
+    'privacy.intro': 'אנו מכבדים את פרטיותכם. להלן אילו נתונים נאספים, לאיזו מטרה, ולמי הם מועברים.',
+    'privacy.h.collect': 'אילו נתונים נאספים',
+    'privacy.collect': 'מיקום (נקודת התחלה ו-GPS) לצורך יצירת מסלולים; אם התחברתם — אימייל, שם ותמונת פרופיל מחשבון Google; ומסלולים ששמרתם.',
+    'privacy.h.use': 'למה הנתונים משמשים',
+    'privacy.use': 'ליצירת מסלולי ריצה סביב המיקום שלכם, לשמירת מסלולים ולשיפור איכות המסלולים.',
+    'privacy.h.third': 'שירותי צד שלישי',
+    'privacy.third': 'קואורדינטות נשלחות למנוע המסלולים, ל-Open-Meteo (נתוני גובה), ל-Nominatim/OpenStreetMap (חיפוש כתובות) ולספק אריחי המפה. חשבונות ומסלולים נשמרים ב-Supabase.',
+    'privacy.h.retention': 'שמירה ומחיקה',
+    'privacy.retention': 'מסלולים שמורים נשארים עד שתמחקו אותם. ניתן למחוק את כל המסלולים מתוך מסך ההגדרות > נתונים. מחיקת החשבון מסירה את הנתונים המשויכים אליו.',
+    'privacy.h.rights': 'הזכויות שלכם',
+    'privacy.rights': 'יש לכם זכות לעיין בנתונים שלכם, לתקן אותם ולמחוק אותם. משתמשים באיחוד האירופי זכאים גם לזכויות לפי ה-GDPR.',
+    'privacy.h.contact': 'יצירת קשר',
+    'privacy.contact': 'בשאלות פרטיות ניתן לפנות אלינו בדוא"ל: itamars1000@gmail.com',
+
     // Map styles
     'mapStyle.voyager': 'צבעוני',
     'mapStyle.light': 'בהיר',
@@ -278,6 +296,24 @@ export const TRANSLATIONS = {
     'safety.ack': "I understand — I'm responsible for my safety",
     'safety.routeNote': 'Suggested route — stay aware of traffic and surroundings.',
     'safety.settingsTitle': 'Safety & liability',
+
+    // Privacy policy
+    'privacy.title': 'Privacy Policy',
+    'privacy.link': 'Privacy policy',
+    'privacy.updated': 'Last updated: June 2026',
+    'privacy.intro': 'We respect your privacy. Here is what data is collected, why, and who it is shared with.',
+    'privacy.h.collect': 'What we collect',
+    'privacy.collect': 'Location (start point and GPS) to generate routes; if you sign in — email, name and profile picture from your Google account; and routes you save.',
+    'privacy.h.use': 'How we use it',
+    'privacy.use': 'To generate running routes around your location, to save routes, and to improve route quality.',
+    'privacy.h.third': 'Third-party services',
+    'privacy.third': 'Coordinates are sent to the route engine, to Open-Meteo (elevation), to Nominatim/OpenStreetMap (address search), and to the map tile provider. Accounts and saved routes are stored in Supabase.',
+    'privacy.h.retention': 'Retention & deletion',
+    'privacy.retention': 'Saved routes remain until you delete them. You can delete all routes from Settings > Data. Deleting your account removes its associated data.',
+    'privacy.h.rights': 'Your rights',
+    'privacy.rights': 'You have the right to access, correct and delete your data. Users in the EU also have rights under the GDPR.',
+    'privacy.h.contact': 'Contact',
+    'privacy.contact': 'For privacy questions, email us at itamars1000@gmail.com',
 
     // Map styles
     'mapStyle.voyager': 'Colorful',
