@@ -88,7 +88,7 @@ function dot(ctx, x, y, color) {
  * Draw the share card and return it as a PNG Blob.
  *
  * @param {object}   route   generatedRoute: { coords, distanceKm, ascentM, descentM, turnsPerKm }
- * @param {object}   labels  resolved strings { appName, tagline, km, ascent, descent, turns }
+ * @param {object}   labels  resolved strings { appName, tagline, km, ascent, descent }
  * @param {boolean}  rtl     true for Hebrew (affects text shaping only)
  */
 export async function renderStoryCard({ route, labels, rtl = true }) {
@@ -182,13 +182,12 @@ export async function renderStoryCard({ route, labels, rtl = true }) {
   drawText(route.distanceKm.toFixed(1), W / 2, 1095, `800 180px ${FONT}`, '#fff');
   drawText(labels.km, W / 2, 1158, `600 50px ${FONT}`, 'rgba(255,255,255,0.92)');
 
-  // ---- stat row ----
+  // ---- stat row (ascent / descent) ----
   const cols = [
     { value: String(route.ascentM ?? '—'), label: labels.ascent },
-    { value: route.turnsPerKm.toFixed(1), label: labels.turns },
     { value: String(route.descentM ?? '—'), label: labels.descent },
   ];
-  const colX = [W / 2 - 270, W / 2, W / 2 + 270];
+  const colX = [W / 2 - 200, W / 2 + 200];
   cols.forEach((c, i) => {
     drawText(c.value, colX[i], 1290, `700 58px ${FONT}`, '#fff');
     drawText(c.label, colX[i], 1342, `500 30px ${FONT}`, 'rgba(255,255,255,0.85)');

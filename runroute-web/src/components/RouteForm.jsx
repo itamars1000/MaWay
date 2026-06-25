@@ -74,11 +74,10 @@ export default function RouteForm() {
         rtl: lang === 'he',
         labels: {
           appName: 'MaWay',
-          tagline: t('share.tagline'),
+          tagline: 'Find Your Way',
           km: t('units.km'),
           ascent: t('stat.ascent'),
           descent: t('stat.descent'),
-          turns: t('share.turns'),
         },
       });
     } catch {
