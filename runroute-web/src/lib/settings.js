@@ -4,6 +4,7 @@ import { DEFAULT_MAP_STYLE } from './mapStyles.js';
 
 export const MAP_STYLE_KEY = 'maway:mapStyle';
 export const LANG_KEY = 'maway:lang';
+export const SAFETY_ACK_KEY = 'maway:safety-ack';
 
 /** Persisted basemap style id (validated by getStyle on use). */
 export function getMapStyleId() {
@@ -34,6 +35,23 @@ export function getLang() {
 export function setLangStored(lang) {
   try {
     localStorage.setItem(LANG_KEY, lang);
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
+/** Whether the user has acknowledged the one-time safety notice. */
+export function getSafetyAcked() {
+  try {
+    return localStorage.getItem(SAFETY_ACK_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setSafetyAcked() {
+  try {
+    localStorage.setItem(SAFETY_ACK_KEY, '1');
   } catch {
     /* ignore storage errors */
   }

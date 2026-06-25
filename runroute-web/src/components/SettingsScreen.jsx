@@ -148,6 +148,19 @@ export default function SettingsScreen() {
           </div>
         </section>
 
+        {/* ---- Safety ---- */}
+        <section className="settings-group">
+          <h2 className="settings-group-title">{t('safety.settingsTitle')}</h2>
+          <div className="settings-card">
+            <p className="settings-note">{t('safety.intro')}</p>
+            <ul className="safety-list">
+              <li>{t('safety.b1')}</li>
+              <li>{t('safety.b2')}</li>
+              <li>{t('safety.b3')}</li>
+            </ul>
+          </div>
+        </section>
+
         {/* ---- About ---- */}
         <section className="settings-group">
           <h2 className="settings-group-title">{t('settings.about')}</h2>

@@ -116,6 +116,16 @@ export const TRANSLATIONS = {
     'settings.aboutNote': 'מסלולי ריצה ישרים ורציפים.',
     'settings.version': 'גרסה {ver}',
 
+    // Safety / liability
+    'safety.title': 'לפני שיוצאים לרוץ',
+    'safety.intro': 'המסלולים נוצרים אוטומטית כהצעה בלבד — אנא קראו לפני השימוש:',
+    'safety.b1': 'הנתונים עלולים להיות שגויים או לא מעודכנים; מסלול עלול לעבור במקום לא בטוח.',
+    'safety.b2': 'אתם אחראים לבטיחותכם — שימו לב לתנועה, לחוקי הדרך, לתאורה ולסביבה.',
+    'safety.b3': 'התייעצו עם רופא לפני פעילות גופנית והכירו את גבולותיכם.',
+    'safety.ack': 'הבנתי — אני אחראי/ת לבטיחותי',
+    'safety.routeNote': 'מסלול מוצע — שימו לב לתנועה ולסביבה.',
+    'safety.settingsTitle': 'בטיחות ואחריות',
+
     // Map styles
     'mapStyle.voyager': 'צבעוני',
     'mapStyle.light': 'בהיר',
@@ -256,6 +266,16 @@ export const TRANSLATIONS = {
     'settings.about': 'About',
     'settings.aboutNote': 'Straight, continuous running routes.',
     'settings.version': 'Version {ver}',
+
+    // Safety / liability
+    'safety.title': 'Before you head out',
+    'safety.intro': 'Routes are generated automatically as suggestions only — please read before using:',
+    'safety.b1': 'Map data may be inaccurate or outdated; a route may pass through an unsafe place.',
+    'safety.b2': "You are responsible for your own safety — watch traffic, obey road rules, and mind lighting and surroundings.",
+    'safety.b3': 'Consult a doctor before exercising and know your own limits.',
+    'safety.ack': "I understand — I'm responsible for my safety",
+    'safety.routeNote': 'Suggested route — stay aware of traffic and surroundings.',
+    'safety.settingsTitle': 'Safety & liability',
 
     // Map styles
     'mapStyle.voyager': 'Colorful',

@@ -289,6 +289,8 @@ export default function RouteForm() {
         <p className="route-error">{routeError}</p>
       )}
 
+      {hasRoute && <p className="safety-note">{t('safety.routeNote')}</p>}
+
       {hasRoute && (
         <>
           {generatedRoute.belowRequested && (

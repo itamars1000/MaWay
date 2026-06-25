@@ -8,6 +8,7 @@ import FloatingHeader from './components/FloatingHeader.jsx';
 import BottomSheet, { SNAP } from './components/BottomSheet.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import SettingsScreen from './components/SettingsScreen.jsx';
+import SafetyNotice from './components/SafetyNotice.jsx';
 
 /** Requests the user's location once on mount. */
 function GeolocationBootstrap() {
@@ -42,6 +43,7 @@ export default function App() {
           </div>
           <LoginScreen />
           <SettingsScreen />
+          <SafetyNotice />
         </AppStateProvider>
       </SettingsProvider>
     </AuthProvider>
