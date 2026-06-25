@@ -21,6 +21,7 @@ Env:
 """
 from __future__ import annotations
 
+import json
 import os
 import time
 
@@ -30,6 +31,11 @@ _BUILD_JOB = os.getenv("BUILD_JOB", "").strip()
 _PROJECT_ENV = os.getenv("GCP_PROJECT", "").strip()
 _REGION = os.getenv("BUILD_JOB_REGION", os.getenv("GCP_REGION", "")).strip()
 _BUILD_TIMEOUT_S = float(os.getenv("BUILD_TIMEOUT_S", "1200"))
+# Global cap on NEW on-demand builds per rolling hour — the hard ceiling on the
+# most expensive operation (a Job build downloads a Geofabrik extract + builds a
+# graph). Bounds cost even under a distributed flood. Tunable via env.
+_MAX_BUILDS_PER_HOUR = int(os.getenv("MAX_BUILDS_PER_HOUR", "60"))
+_BUILD_LEDGER_KEY = f"{graph_store._ONDEMAND_PREFIX}_builds.json"
 # After a failed build we briefly refuse to re-trigger (so a genuinely broken
 # area doesn't spam the Job). Kept short: most failures are transient data-source
 # blips, and the web app tells the user to "try again in a moment" — a retry past
@@ -77,6 +83,40 @@ class Building(Exception):
         self.key = key
 
 
+class BuildBusy(Exception):
+    """Raised when the global per-hour build budget is exhausted — caller should
+    refuse to start a NEW build (returns a distinct 'busy, try later' state)."""
+
+
+def _reserve_build_slot() -> None:
+    """Account one NEW build against the rolling-hour budget, or raise BuildBusy.
+
+    Uses a small GCS ledger object (a list of recent trigger epochs) so the cap
+    is global across serving instances. Read-modify-write is mildly racy under
+    concurrency (worst case a slight overshoot of the cap) — acceptable, since it
+    still bounds builds to ~cap rather than unbounded."""
+    if _MAX_BUILDS_PER_HOUR <= 0:           # 0/negative disables the cap
+        return
+    now = time.time()
+    cutoff = now - 3600.0
+    try:
+        raw = graph_store._read_bytes(_BUILD_LEDGER_KEY)
+        recent = [t for t in json.loads(raw) if isinstance(t, (int, float)) and t > cutoff]
+    except Exception:  # noqa: BLE001 — missing/corrupt ledger → start fresh
+        recent = []
+    if len(recent) >= _MAX_BUILDS_PER_HOUR:
+        raise BuildBusy(f"build budget exhausted ({_MAX_BUILDS_PER_HOUR}/h)")
+    recent.append(now)
+    try:
+        graph_store._write_bytes(
+            _BUILD_LEDGER_KEY,
+            json.dumps(recent).encode("utf-8"),
+            content_type="application/json",
+        )
+    except Exception:  # noqa: BLE001 — ledger write failure shouldn't block the build
+        pass
+
+
 def enabled() -> bool:
     """True only when the cloud build pipeline is fully wired (else local path)."""
     return bool(graph_store._BUCKET and _BUILD_JOB and _REGION and _project())
@@ -115,6 +155,11 @@ def get_or_trigger(lat, lng, distance_m, span_m=None):
         elif status == "error" and age < _ERROR_COOLDOWN_S:
             raise RuntimeError(marker.get("error", "tile build failed"))
         # else: stale building / old error → fall through and (re)trigger
+
+    # Gate NEW builds against the global per-hour budget BEFORE claiming/launching
+    # (raises BuildBusy when exhausted). Only reached when an area genuinely needs
+    # a fresh build — never on the cached/ready/in-flight path above.
+    _reserve_build_slot()
 
     # Claim the build immediately (dedupes concurrent first-requests in the gap
     # before the Job starts and writes its own marker), then launch the Job.

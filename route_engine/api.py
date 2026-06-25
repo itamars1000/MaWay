@@ -18,12 +18,16 @@ import os
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from . import graph_store, learning, ondemand, world_store
+from . import graph_store, learning, ondemand, ratelimit, world_store
 from .router import find_loop_candidates, RouteError
+
+# Per-IP rate limits (in-memory; see ratelimit.py). Tunable via env without code.
+_limit_loop = ratelimit.limit("loop", "RATE_LIMIT_PER_MIN", 30)
+_limit_feedback = ratelimit.limit("feedback", "RATE_LIMIT_FEEDBACK_PER_MIN", 10)
 
 
 def _ondemand_region(lat, lng, distance, span_m=None):
@@ -37,6 +41,13 @@ def _ondemand_region(lat, lng, distance, span_m=None):
             raise HTTPException(
                 status_code=425,
                 detail="building: preparing this area for the first time",
+            )
+        except world_store.BuildBusy:
+            # Global on-demand build budget exhausted — refuse NEW builds for now
+            # (protects against runaway build cost), distinct from a per-area failure.
+            raise HTTPException(
+                status_code=503,
+                detail="build_busy: area builds are rate-limited right now, try later",
             )
         except RuntimeError as exc:
             # The async build Job failed (e.g. a transient data-source outage)
@@ -100,7 +111,7 @@ class Feedback(BaseModel):
     label: int  # 1 = good (👍), 0 or -1 = bad (👎)
 
 
-@app.post("/feedback")
+@app.post("/feedback", dependencies=[Depends(_limit_feedback)])
 def feedback(fb: Feedback):
     """Record a 👍/👎 on a route; the scorer's weights learn from it."""
     feats = {
@@ -141,7 +152,7 @@ def admin_reindex(token: str = Query(...)):
     return {"ok": True, **result}
 
 
-@app.get("/loop")
+@app.get("/loop", dependencies=[Depends(_limit_loop)])
 def loop(
     lat: float = Query(..., ge=-90, le=90),
     lng: float = Query(..., ge=-180, le=180),

@@ -150,6 +150,8 @@ export const TRANSLATIONS = {
     'err.no-path': 'לא נמצא מסלול מ-A ל-B. נסה יעד אחר או מרחק אחר.',
     'err.building': 'מכינים את האזור הזה בפעם הראשונה — זה לוקח רגע. נסה שוב בעוד דקה.',
     'err.build-failed': 'לא הצלחנו להכין את האזור הזה כרגע — נסה שוב בעוד רגע.',
+    'err.rate-limited': 'יותר מדי בקשות — נסה שוב בעוד רגע.',
+    'err.build-busy': 'יש כרגע עומס בהכנת אזורים חדשים — נסה שוב מאוחר יותר.',
     'err.default': 'משהו השתבש ביצירת המסלול. נסה שוב.',
   },
 
@@ -301,6 +303,8 @@ export const TRANSLATIONS = {
     'err.no-path': 'No route from A to B found. Try a different destination or distance.',
     'err.building': 'Preparing this area for the first time — this takes a moment. Try again in a minute.',
     'err.build-failed': "We couldn't prepare this area right now — please try again in a moment.",
+    'err.rate-limited': 'Too many requests — please try again in a moment.',
+    'err.build-busy': "New areas are busy being prepared right now — please try again later.",
     'err.default': 'Something went wrong creating the route. Please try again.',
   },
 };

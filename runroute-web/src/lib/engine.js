@@ -178,6 +178,14 @@ async function attemptLoop(url, signal) {
         building: true,
       });
     }
+    // 429 = per-IP rate limit. Don't auto-retry — show the "slow down" message.
+    if (res.status === 429 || String(detail).startsWith('rate_limited')) {
+      throw new EngineError('rate-limited', detail || 'rate limited');
+    }
+    // 503 build_busy = global build budget exhausted (refused a NEW area build).
+    if (res.status === 503 && String(detail).startsWith('build_busy')) {
+      throw new EngineError('build-busy', detail);
+    }
     if (res.status === 422) {
       const d = String(detail);
       if (d.startsWith('no_quality')) throw new EngineError('no-quality', detail);
