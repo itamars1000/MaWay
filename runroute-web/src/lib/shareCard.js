@@ -217,15 +217,20 @@ function downloadBlob(blob, filename) {
  * Render the card and share it. Uses navigator.share with the file on mobile;
  * falls back to a PNG download elsewhere. Returns 'shared' | 'downloaded' |
  * 'cancelled'.
+ *
+ * We deliberately share ONLY the file — no title/text. When a caption is passed
+ * alongside the file, picking "Copy" in the OS share sheet copies the text
+ * instead of the image; the sticker already shows all the info, so the image is
+ * the whole payload.
  */
-export async function shareRouteStory({ route, labels, caption, rtl = true }) {
+export async function shareRouteStory({ route, labels, rtl = true }) {
   const blob = await renderStoryCard({ route, labels, rtl });
   const filename = `maway-${route.distanceKm.toFixed(1)}km.png`;
   const file = new File([blob], filename, { type: 'image/png' });
 
   if (navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: labels.appName, text: caption });
+      await navigator.share({ files: [file] });
       return 'shared';
     } catch (err) {
       if (err?.name === 'AbortError') return 'cancelled';

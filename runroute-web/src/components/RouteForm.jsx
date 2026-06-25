@@ -72,7 +72,6 @@ export default function RouteForm() {
       await shareRouteStory({
         route: generatedRoute,
         rtl: lang === 'he',
-        caption: t('share.text', { dist: generatedRoute.distanceKm.toFixed(1) }),
         labels: {
           appName: 'MaWay',
           tagline: t('share.tagline'),
