@@ -57,6 +57,11 @@ export const TRANSLATIONS = {
     // Save / feedback
     'save.save': 'שמור',
     'save.saved': 'נשמר',
+    'share.story': 'שתף סטורי',
+    'share.sharing': 'מכין…',
+    'share.tagline': 'מצא את הדרך שלך',
+    'share.turns': 'פניות/ק״מ',
+    'share.text': 'רצתי {dist} ק״מ עם MaWay 🏃',
     'feedback.thanks': 'תודה! זה ישפר את המסלולים הבאים 🙏',
     'feedback.q': 'איך המסלול?',
     'feedback.goodAria': 'מסלול טוב',
@@ -228,6 +233,11 @@ export const TRANSLATIONS = {
     // Save / feedback
     'save.save': 'Save',
     'save.saved': 'Saved',
+    'share.story': 'Share story',
+    'share.sharing': 'Preparing…',
+    'share.tagline': 'Find your way',
+    'share.turns': 'turns/km',
+    'share.text': 'I ran {dist} km with MaWay 🏃',
     'feedback.thanks': 'Thanks! This will improve future routes 🙏',
     'feedback.q': "How's the route?",
     'feedback.goodAria': 'Good route',
