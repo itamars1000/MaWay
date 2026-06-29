@@ -63,10 +63,10 @@ LANDMARK_MIN_M = 7000
 # A returned loop must be at least the requested length (hard floor in
 # find_loop_candidates). This is the upper sanity cap so it isn't wildly long.
 DIST_BAND_HI = 1.6            # ≤ 160% of target
-# A candidate is "accurate enough" to count toward the early-stop when it's
-# within this band; slightly looser than the per-pass 1.08 break so it's
-# reliably achievable on real street grids.
-DIST_QUALIFY_HI = 1.12
+# A candidate is "accurate enough" to count toward the early-stop, and to LEAD
+# the returned list, when it's within this band; slightly looser than the
+# per-pass 1.05 break so it's reliably achievable on real street grids.
+DIST_QUALIFY_HI = 1.10
 # Among routes that meet the turn cap, prefer accurate distance, then pleasant.
 SCORE_W_TURNS = 0.50
 SCORE_W_DIST = 0.38
@@ -333,7 +333,7 @@ def _drive_correction(attempt, size0, target_m, max_passes, floor=0.0):
         if actual >= target_m:
             if best_over is None or actual < best_over[1]:
                 best_over = (feat, actual)
-            if actual <= 1.08 * target_m:
+            if actual <= 1.05 * target_m:
                 break  # close enough from above — stop shrinking
         elif best_under is None or actual > best_under[1]:
             best_under = (feat, actual)
@@ -562,10 +562,12 @@ def _run_path(region, start_primal, start_pt, end_primal, end_pt, target_m,
 # Candidates
 # ---------------------------------------------------------------------------
 
-# The hard floor already guarantees distance >= target, and a bit longer is
-# fine — so penalise OVERSHOOT gently. This lets a scenic route that bulges out
-# to the coast (and runs a touch long) win over a bland, exactly-on-target one.
-OVERSHOOT_PENALTY = 0.45
+# The hard floor already guarantees distance >= target. Overshoot is still real
+# inaccuracy from the runner's view, so penalise it nearly as hard as undershoot
+# — among low-turn loops the selection then favours the one closest to target.
+# (A scenic loop that bulges a little long can still win, but only when its turn /
+# pleasantness advantage clearly outweighs the extra distance.)
+OVERSHOOT_PENALTY = 0.85
 
 
 def route_features(feature, target_m):

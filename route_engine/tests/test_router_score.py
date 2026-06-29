@@ -3,7 +3,8 @@ network: _score / _hill_badness read plain feature dicts and learning defaults;
 _finalize tests monkeypatch elevation.add_elevation so no request is made."""
 from route_engine import router
 from route_engine.router import (
-    HILL_NORM_M_PER_KM, _finalize, _hill_badness, _score,
+    HILL_NORM_M_PER_KM, OVERSHOOT_PENALTY, _finalize, _hill_badness, _score,
+    route_features,
 )
 
 
@@ -39,6 +40,29 @@ def test_hill_badness_flat_is_small():
 def test_hill_badness_caps_at_one():
     # 5 km loop, 1000 m climb → 200 m/km → capped at 1.0
     assert _hill_badness(_feature(5000, 2.0, ascent_m=1000)) == 1.0
+
+
+def test_overshoot_uses_penalty_factor():
+    # Overshoot badness = over * OVERSHOOT_PENALTY / target (discounted vs under).
+    target = 5000
+    over = route_features(_feature(6000, 2.0), target)["dist"]
+    assert abs(over - (1000 * OVERSHOOT_PENALTY / target)) < 1e-9
+
+
+def test_undershoot_not_discounted():
+    # Coming up short is penalised at full weight (no OVERSHOOT_PENALTY factor).
+    target = 5000
+    under = route_features(_feature(4000, 2.0), target)["dist"]
+    assert abs(under - (1000 / target)) < 1e-9
+
+
+def test_score_penalizes_overshoot_when_quality_equal():
+    # With identical turns/quality, the on-target loop beats a longer one — so
+    # selection prefers accurate distance.
+    target = 5000
+    on_target = _feature(5000, 2.0)
+    long_route = _feature(6000, 2.0)  # +20%
+    assert _score(on_target, target) < _score(long_route, target)
 
 
 def test_score_prefers_flatter_route():
