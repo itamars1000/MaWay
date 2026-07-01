@@ -9,6 +9,8 @@ import BottomSheet, { SNAP } from './components/BottomSheet.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import SettingsScreen from './components/SettingsScreen.jsx';
 import PrivacyScreen from './components/PrivacyScreen.jsx';
+import AccessibilityScreen from './components/AccessibilityScreen.jsx';
+import A11yWidget from './components/A11yWidget.jsx';
 import SafetyNotice from './components/SafetyNotice.jsx';
 
 /** Requests the user's location once on mount. */
@@ -45,6 +47,8 @@ export default function App() {
           <LoginScreen />
           <SettingsScreen />
           <PrivacyScreen />
+          <AccessibilityScreen />
+          <A11yWidget />
           <SafetyNotice />
         </AppStateProvider>
       </SettingsProvider>
