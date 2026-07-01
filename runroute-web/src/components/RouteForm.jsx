@@ -45,6 +45,7 @@ export default function RouteForm() {
     setStartLocation,
     selectAddress,
     useCurrentLocationAsStart,
+    effectiveStart,
     // via / end / picking
     viaPoint,
     endPoint,
@@ -153,6 +154,7 @@ export default function RouteForm() {
           onUseCurrent={useCurrentLocationAsStart}
           committedInit={startDisplay}
           placeholder={t('form.startPlaceholder')}
+          near={effectiveStart}
         />
         {geoStatus === 'denied' && (
           <span className="geo-hint">{t('form.geoDenied')}</span>
@@ -180,6 +182,7 @@ export default function RouteForm() {
             onChange={setEndLocation}
             onPick={selectEndAddress}
             placeholder={t('form.endPlaceholder')}
+            near={effectiveStart}
           />
           <button
             type="button"

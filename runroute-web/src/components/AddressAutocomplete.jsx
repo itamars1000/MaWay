@@ -6,7 +6,7 @@ import { LocationIcon, TargetIcon, FlagIcon } from './icons.jsx';
 const DEBOUNCE_MS = 400;
 
 /**
- * Address input with Nominatim autocomplete — used for BOTH the start and the
+ * Address input with Photon autocomplete — used for BOTH the start and the
  * A→B end field. Controlled via props:
  *   value        current text (already display-resolved by the parent)
  *   onChange     (text) => void
@@ -14,6 +14,7 @@ const DEBOUNCE_MS = 400;
  *   onUseCurrent () => void | undefined          (shows the "use my location" row)
  *   committedInit text the field starts at (won't trigger a search)
  *   variant      'start' | 'end' (icon styling)
+ *   near         {lat,lng} | null — bias results near this point (optional)
  */
 export default function AddressAutocomplete({
   value,
@@ -23,8 +24,9 @@ export default function AddressAutocomplete({
   committedInit = '',
   placeholder,
   variant = 'start',
+  near = null,
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -47,7 +49,7 @@ export default function AddressAutocomplete({
       const controller = new AbortController();
       abortRef.current = controller;
       try {
-        const found = await searchAddress(q, controller.signal);
+        const found = await searchAddress(q, { signal: controller.signal, lang, near });
         setResults(found);
         setOpen(true);
       } catch (err) {
@@ -58,7 +60,7 @@ export default function AddressAutocomplete({
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [value]);
+  }, [value, lang, near]);
 
   // Close the dropdown on outside click.
   useEffect(() => {
