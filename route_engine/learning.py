@@ -29,6 +29,18 @@ FEATS = ["turns", "dist", "pleasant", "scenic"]
 DEFAULT_WEIGHTS = {"turns": 0.38, "dist": 0.30, "pleasant": 0.10, "scenic": 0.22}
 PRIOR_STRENGTH = 20  # feedback samples at which learned weights are ~half-trusted
 
+# Anti-poisoning bounds. /feedback is anonymous and its feature payload is
+# client-supplied, so a flood of crafted samples must not be able to take over
+# the scorer. Two caps contain the blast radius:
+#  - _MAX_ALPHA caps the learned share of the blend, so the hand-tuned defaults
+#    keep at least (1 - _MAX_ALPHA) of every weight — a floor poison can't cross.
+#    (Turns are also a pre-scoring hard filter and the distance floor is enforced
+#    outside the scorer, so a bounded scorer stays safe.)
+#  - _MAX_SAMPLES caps the feedback log (trimmed to the most recent rows), which
+#    bounds disk + retrain CPU and stops a burst from dominating the fit.
+_MAX_ALPHA = float(os.getenv("FEEDBACK_MAX_ALPHA", "0.5"))
+_MAX_SAMPLES = int(os.getenv("FEEDBACK_MAX_SAMPLES", "5000"))
+
 _DIR = os.path.dirname(__file__)
 _FB_PATH = os.path.join(_DIR, "feedback.jsonl")
 _W_PATH = os.path.join(_DIR, "learned_weights.json")
@@ -71,10 +83,15 @@ def _ensure_loaded():
 def _load_data():
     X, Y = [], []
     if os.path.exists(_FB_PATH):
-        for line in open(_FB_PATH, encoding="utf-8"):
-            line = line.strip()
-            if not line:
-                continue
+        with open(_FB_PATH, encoding="utf-8") as fh:
+            lines = [ln for ln in (raw.strip() for raw in fh) if ln]
+        if len(lines) > _MAX_SAMPLES:
+            # Cap the log to the most recent rows: bounds disk + retrain CPU, and
+            # limits how much a burst of feedback can dominate the fit.
+            lines = lines[-_MAX_SAMPLES:]
+            with open(_FB_PATH, "w", encoding="utf-8") as fh:
+                fh.write("\n".join(lines) + "\n")
+        for line in lines:
             d = json.loads(line)
             # .get(k, 0.0) tolerates older rows logged before a feature existed.
             X.append([d["f"].get(k, 0.0) for k in FEATS])
@@ -108,8 +125,10 @@ def _retrain_locked():
         badness = np.clip(-coef, 0.0, None)
         if badness.sum() > 1e-9:
             learned = badness / badness.sum()
-            # Blend toward defaults by sample count (confidence).
-            alpha = n / (n + PRIOR_STRENGTH)
+            # Blend toward defaults by sample count (confidence), but never let the
+            # learned share exceed _MAX_ALPHA — the anti-poisoning floor that keeps
+            # (1 - _MAX_ALPHA) of every default weight regardless of feedback volume.
+            alpha = min(_MAX_ALPHA, n / (n + PRIOR_STRENGTH))
             dflt = np.array([DEFAULT_WEIGHTS[k] for k in FEATS])
             blended = alpha * learned + (1 - alpha) * dflt
             blended = blended / blended.sum()

@@ -111,16 +111,25 @@ class Feedback(BaseModel):
     label: int  # 1 = good (👍), 0 or -1 = bad (👎)
 
 
+def _feedback_features(fb: "Feedback") -> dict:
+    """Badness features from a feedback payload, each CLAMPED to its sane range.
+    The payload is anonymous and client-supplied, so an attacker could send wild
+    values to yank the fit; clamping bounds each feature before it can move the
+    learned weights (the _MAX_ALPHA cap in learning.py bounds it further)."""
+    def clamp(v, lo, hi):
+        return max(lo, min(hi, v))
+    return {
+        "turns": clamp(fb.turns_per_km, 0.0, 16.0) / 8.0,     # 0..2
+        "dist": clamp(abs(fb.distance_m - fb.target_m) / max(fb.target_m, 1.0), 0.0, 3.0),
+        "pleasant": clamp(1.0 - fb.pleasant_frac, 0.0, 1.0),
+        "scenic": clamp(1.0 - fb.scenic_frac, 0.0, 1.0),
+    }
+
+
 @app.post("/feedback", dependencies=[Depends(_limit_feedback)])
 def feedback(fb: Feedback):
     """Record a 👍/👎 on a route; the scorer's weights learn from it."""
-    feats = {
-        "turns": min(fb.turns_per_km / 8.0, 2.0),
-        "dist": abs(fb.distance_m - fb.target_m) / max(fb.target_m, 1.0),
-        "pleasant": 1.0 - fb.pleasant_frac,
-        "scenic": 1.0 - fb.scenic_frac,
-    }
-    learning.record(feats, 1 if fb.label > 0 else 0)
+    learning.record(_feedback_features(fb), 1 if fb.label > 0 else 0)
     return {"ok": True, "feedback_count": learning.count(), "weights": learning.get_weights()}
 
 
