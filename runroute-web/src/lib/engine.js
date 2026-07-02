@@ -6,8 +6,10 @@
 const BASE = import.meta.env.VITE_ENGINE_URL || 'http://localhost:8000';
 
 // Safety net so the UI never hangs forever. The engine itself is time-budgeted
-// (~sub-second to ~8 s); this only bites on a stuck/very slow build.
-const REQUEST_TIMEOUT_MS = 45000;
+// (~sub-second to ~8 s), but the FIRST request in a freshly-built area also
+// pays a big tile download into the engine's memory — measured up to ~47 s in
+// London — so leave real headroom above that.
+const REQUEST_TIMEOUT_MS = 75000;
 
 // The engine runs on a small free instance (Render free tier) that occasionally
 // returns a transient failure under load — a fast 404 "no-server" while the
