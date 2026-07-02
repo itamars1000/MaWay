@@ -22,10 +22,12 @@ Env:
 from __future__ import annotations
 
 import json
+import math
 import os
 import time
 
 from . import graph_store, ondemand
+from .geo import haversine
 
 _BUILD_JOB = os.getenv("BUILD_JOB", "").strip()
 _PROJECT_ENV = os.getenv("GCP_PROJECT", "").strip()
@@ -127,6 +129,46 @@ def enabled() -> bool:
 _FILE_BY_KEY: dict[str, str] = {}
 
 
+def _covering_neighbor(lat, lng, distance_m):
+    """A ready NEIGHBOURING loop tile that already covers (lat,lng) for this
+    distance → (file, Region), else None.
+
+    Tiles are keyed per ~1 km cell but built with a generous fixed radius, so a
+    request landing one cell over from a built area is fully covered by the
+    existing tile — without this check it would pay a whole new build (measured
+    ~18 min for a dense capital). Scanned nearest-first with a bounded number
+    of marker reads; only on the would-build path, never on the hot path."""
+    needed = 0.35 * distance_m + 500.0            # loop reach ≈ D/π + wiggle room
+    slack = ondemand._LOOP_TILE_RADIUS - needed   # max distance to a usable centre
+    if slack <= 0:
+        return None                               # very long loop → own cell only
+    base_lat, base_lng = round(lat, 2), round(lng, 2)
+    lat_cells = min(6, int(slack // 1110.0) + 1)  # 0.01° lat ≈ 1.11 km
+    lng_cell_m = 1110.0 * max(0.2, math.cos(math.radians(lat)))
+    lng_cells = min(8, int(slack // lng_cell_m) + 1)
+    cands = []
+    for di in range(-lat_cells, lat_cells + 1):
+        for dj in range(-lng_cells, lng_cells + 1):
+            if di == 0 and dj == 0:
+                continue                          # the exact cell was already checked
+            c_lat = round(base_lat + 0.01 * di, 2)
+            c_lng = round(base_lng + 0.01 * dj, 2)
+            d = haversine((lat, lng), (c_lat, c_lng))
+            if d <= slack:
+                cands.append((d, c_lat, c_lng))
+    cands.sort()
+    for _d, c_lat, c_lng in cands[:16]:           # nearest first; bounded GCS reads
+        nkey = f"{c_lat}_{c_lng}_{ondemand._TILE_VERSION}"
+        marker = graph_store.read_marker(nkey)
+        if not marker or marker.get("status") != "ready":
+            continue
+        file = marker.get("file") or f"{graph_store._ONDEMAND_PREFIX}{nkey}.pkl"
+        region = graph_store.load_ondemand_file(file)
+        if region is not None:
+            return file, region
+    return None
+
+
 def get_or_trigger(lat, lng, distance_m, span_m=None):
     """Return a ready on-demand Region for (lat,lng), or trigger a build and
     raise Building. Re-raises RuntimeError if a recent build failed."""
@@ -155,6 +197,16 @@ def get_or_trigger(lat, lng, distance_m, span_m=None):
         elif status == "error" and age < _ERROR_COOLDOWN_S:
             raise RuntimeError(marker.get("error", "tile build failed"))
         # else: stale building / old error → fall through and (re)trigger
+
+    # Before paying for a fresh build: a neighbouring cell's generous tile may
+    # already cover this point for this distance. (Loops only — A→B tiles are
+    # sized to their two endpoints and rarely reusable across cells.)
+    if span_m is None:
+        found = _covering_neighbor(lat, lng, distance_m)
+        if found is not None:
+            nfile, region = found
+            _FILE_BY_KEY[key] = nfile  # this cell now resolves without a scan
+            return region
 
     # Gate NEW builds against the global per-hour budget BEFORE claiming/launching
     # (raises BuildBusy when exhausted). Only reached when an area genuinely needs

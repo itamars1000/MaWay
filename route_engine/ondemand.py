@@ -20,6 +20,7 @@ import osmnx as ox
 
 from . import builder
 from .dual_graph import build_dual_graph
+from .geo import haversine
 from .graph_store import Region
 
 ox.settings.use_cache = True
@@ -88,6 +89,14 @@ def get_or_build(lat, lng, distance_m, span_m=None):
                 region = Region(pickle.load(f))
             _remember(key, region)
             return region
+        # A neighbouring cell's cached tile may already cover this point for
+        # this distance (tiles are keyed per ~1 km cell but built 7 km wide) —
+        # reuse it instead of rebuilding. Loops only; A→B tiles are span-sized.
+        if span_m is None:
+            near = _covering_cached(lat, lng, distance_m)
+            if near is not None:
+                _remember(key, near)
+                return near
         G = ox.graph_from_point(
             (cell_lat, cell_lng), dist=radius,
             network_type="walk", simplify=True,
@@ -118,6 +127,34 @@ def get_or_build(lat, lng, distance_m, span_m=None):
         region = Region(data)
         _remember(key, region)
         return region
+
+
+def _covering_cached(lat, lng, distance_m):
+    """The nearest cached LOOP tile (any cell) whose generous radius still
+    covers (lat,lng) for this distance, or None. Same idea as the cloud path's
+    world_store._covering_neighbor, but against the local disk cache."""
+    needed = 0.35 * distance_m + 500.0   # loop reach ≈ D/π + wiggle room
+    slack = _LOOP_TILE_RADIUS - needed   # max distance to a usable tile centre
+    if slack <= 0 or not os.path.isdir(_CACHE_DIR):
+        return None
+    best = None  # (dist_m, path)
+    for fn in os.listdir(_CACHE_DIR):
+        if not fn.endswith(f"_{_TILE_VERSION}.pkl"):
+            continue
+        parts = fn[: -len(".pkl")].split("_")
+        if len(parts) != 3:              # A→B tiles carry an extra _r<km> part
+            continue
+        try:
+            c_lat, c_lng = float(parts[0]), float(parts[1])
+        except ValueError:
+            continue
+        d = haversine((lat, lng), (c_lat, c_lng))
+        if d <= slack and (best is None or d < best[0]):
+            best = (d, os.path.join(_CACHE_DIR, fn))
+    if best is None:
+        return None
+    with open(best[1], "rb") as f:
+        return Region(pickle.load(f))
 
 
 def _remember(key, region):
