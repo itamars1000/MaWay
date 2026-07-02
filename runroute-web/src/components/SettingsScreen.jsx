@@ -29,6 +29,13 @@ export default function SettingsScreen() {
     }
   };
 
+  // Close this screen too, so the login gate (same z-index, painted first in
+  // App.jsx) isn't left hidden behind it once signOut() clears the session.
+  const handleSignOut = () => {
+    signOut();
+    closeSettings();
+  };
+
   return (
     <div className="settings-screen" role="dialog" aria-modal="true" aria-label={t('settings.title')}>
       <header className="settings-bar">
@@ -64,7 +71,7 @@ export default function SettingsScreen() {
                     {user.email && <div className="settings-account-email">{user.email}</div>}
                   </div>
                 </div>
-                <button type="button" className="settings-btn settings-btn--ghost" onClick={signOut}>
+                <button type="button" className="settings-btn settings-btn--ghost" onClick={handleSignOut}>
                   {t('settings.signOut')}
                 </button>
               </div>
