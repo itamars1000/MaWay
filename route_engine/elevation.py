@@ -1,12 +1,13 @@
 """
 Elevation gain/loss for generated routes, via the free Open-Meteo Elevation API
-(no key). Best-effort: on any network/parse error the route is returned without
-elevation props (the UI shows "—"). Adds ~0.3–0.6 s (one request per route,
-run in parallel).
+(no key). Best-effort: transient errors are retried with a short backoff, and
+on final failure the route is returned without elevation props (the UI shows
+"—"). Adds ~0.3–0.6 s (one request per route, run in parallel).
 """
 from __future__ import annotations
 
 import json
+import time
 import urllib.parse
 import urllib.request
 
@@ -15,6 +16,8 @@ from .geo import haversine
 _URL = "https://api.open-meteo.com/v1/elevation"
 _MAX_POINTS = 100          # Open-Meteo caps coordinates per request
 _NOISE_M = 1.5             # ignore sub-noise jitters from the 90 m DEM
+_ATTEMPTS = 3              # total tries per request (free API, occasional 429/5xx)
+_BACKOFF_S = 0.4           # first retry delay; doubles per attempt
 
 
 def _resample(coords, max_points=_MAX_POINTS):
@@ -49,6 +52,19 @@ def _fetch_elevations(latlngs, timeout):
     return data.get("elevation") or []
 
 
+def _fetch_with_retry(latlngs, timeout):
+    """`_fetch_elevations` with a short exponential backoff — Open-Meteo returns
+    a transient 429/5xx now and then, and one quick retry recovers most of them
+    (seen live: a route came back without ascent on a single hiccup)."""
+    for attempt in range(_ATTEMPTS):
+        try:
+            return _fetch_elevations(latlngs, timeout)
+        except Exception:  # noqa: BLE001 — retry; re-raise on the last attempt
+            if attempt == _ATTEMPTS - 1:
+                raise
+            time.sleep(_BACKOFF_S * (2 ** attempt))
+
+
 def _ascent_descent(elevs):
     """Sum of positive / negative consecutive deltas, after a noise threshold."""
     ascent = descent = 0.0
@@ -79,7 +95,7 @@ def add_elevation(features, timeout: float = 4.0):
     if not flat:
         return features
     try:
-        elevs = _fetch_elevations(flat, timeout)
+        elevs = _fetch_with_retry(flat, timeout)
     except Exception:  # noqa: BLE001
         return features
 
