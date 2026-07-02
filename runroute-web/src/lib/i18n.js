@@ -82,7 +82,6 @@ export const TRANSLATIONS = {
     'login.title': 'מצא את הדרך שלך',
     'login.sub': 'מסלולי ריצה ישרים ורציפים — שמירה וסנכרון בין כל המכשירים שלך.',
     'login.google': 'התחבר עם Google',
-    'login.guest': 'המשך כאורח',
 
     // Map overlay / FABs
     'map.locating': 'מאתר מיקום…',
@@ -311,7 +310,6 @@ export const TRANSLATIONS = {
     'login.title': 'Find your way',
     'login.sub': 'Straight, continuous running routes — save and sync across all your devices.',
     'login.google': 'Sign in with Google',
-    'login.guest': 'Continue as guest',
 
     // Map overlay / FABs
     'map.locating': 'Finding location…',

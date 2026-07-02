@@ -7,7 +7,7 @@ import { GoogleIcon } from './icons.jsx';
  * save & sync routes, or skip as guest.
  */
 export default function LoginScreen() {
-  const { loginVisible, signInWithGoogle, continueAsGuest } = useAuth();
+  const { loginVisible, signInWithGoogle } = useAuth();
   const { t } = useT();
   if (!loginVisible) return null;
 
@@ -28,9 +28,6 @@ export default function LoginScreen() {
         <button type="button" className="auth-google" onClick={() => signInWithGoogle()}>
           <GoogleIcon size={20} />
           <span>{t('login.google')}</span>
-        </button>
-        <button type="button" className="auth-guest" onClick={continueAsGuest}>
-          {t('login.guest')}
         </button>
       </div>
     </div>

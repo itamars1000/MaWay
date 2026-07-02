@@ -2,26 +2,18 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js';
 
 /**
- * Optional Google sign-in via Supabase. The app works fully as a guest; signing
- * in is only needed to save/sync routes across devices (sync lands in phase 2).
+ * Google sign-in via Supabase, required to use the app (no guest mode) so every
+ * route is tied to an account. When Supabase isn't configured at all (local dev
+ * without env vars) auth is simply off and the app runs unauthenticated.
  *
- * Exposes: { user, ready, authEnabled, signInWithGoogle, signOut }.
- * When Supabase isn't configured, authEnabled is false and the UI hides sign-in.
+ * Exposes: { user, ready, authEnabled, signInWithGoogle, signOut, loginVisible }.
  */
 const AuthContext = createContext(null);
 
-const GUEST_KEY = 'maway:guestSkip'; // remembers the user chose to continue as guest
-
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  // If auth isn't configured we're "ready" immediately (guest-only).
+  // If auth isn't configured we're "ready" immediately (no login gate).
   const [ready, setReady] = useState(!isSupabaseConfigured);
-  // Has the user dismissed the launch login screen as a guest (persisted)?
-  const [guestSkip, setGuestSkip] = useState(
-    () => typeof localStorage !== 'undefined' && localStorage.getItem(GUEST_KEY) === '1',
-  );
-  // Force the login screen open (e.g. tapping the header account button later).
-  const [forceLogin, setForceLogin] = useState(false);
 
   useEffect(() => {
     if (!supabase) return undefined;
@@ -52,23 +44,10 @@ export function AuthProvider({ children }) {
 
   const signOut = () => supabase?.auth.signOut();
 
-  // Full-screen login is shown on launch when auth is configured, state has
-  // loaded, nobody is signed in, and the user hasn't already skipped as guest.
-  // It can also be force-opened later from the header account button.
-  const loginVisible =
-    isSupabaseConfigured && ready && !user && (forceLogin || !guestSkip);
-
-  const continueAsGuest = () => {
-    setGuestSkip(true);
-    try {
-      localStorage.setItem(GUEST_KEY, '1');
-    } catch {
-      /* ignore storage errors (private mode) */
-    }
-    setForceLogin(false);
-  };
-
-  const openLogin = () => setForceLogin(true);
+  // Full-screen login gate: shown whenever auth is configured, state has
+  // loaded, and nobody is signed in — including right after signOut(), since
+  // that clears `user` and this recomputes with no guest bypass to skip it.
+  const loginVisible = isSupabaseConfigured && ready && !user;
 
   const value = {
     user,
@@ -77,8 +56,6 @@ export function AuthProvider({ children }) {
     signInWithGoogle,
     signOut,
     loginVisible,
-    openLogin,
-    continueAsGuest,
   };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
