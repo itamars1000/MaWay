@@ -18,7 +18,8 @@ export default function LoginScreen() {
 
       <div className="login-hero">
         <RouteArt />
-        <img className="login-logo" src="/maway-logo.png" alt="MaWay" />
+        <img className="login-logo" src="/maway-logo.png" alt="" />
+        <p className="login-brand">MaWay</p>
         <h1 className="login-title">{t('login.title')}</h1>
         <p className="login-sub">{t('login.sub')}</p>
       </div>

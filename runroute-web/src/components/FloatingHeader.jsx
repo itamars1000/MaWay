@@ -10,7 +10,8 @@ export default function FloatingHeader() {
   return (
     <header className="header">
       <div className="brand-pill glass-pill">
-        <img className="brand-logo" src="/maway-logo.png" alt="MaWay" />
+        <img className="brand-logo" src="/maway-logo.png" alt="" />
+        <span className="brand-word">MaWay</span>
       </div>
       <div className="header-tabs glass-pill">
         <SegmentedTabs />

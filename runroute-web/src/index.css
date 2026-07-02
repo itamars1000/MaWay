@@ -374,6 +374,7 @@ body {
 .brand-pill {
   display: flex;
   align-items: center;
+  gap: 7px;
   height: 44px;
   padding: 0 14px;
 }
@@ -381,6 +382,13 @@ body {
   height: 19px;
   width: auto;
   display: block;
+}
+.brand-word {
+  font-family: 'Quicksand', 'Rubik', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--slate);
+  white-space: nowrap;
 }
 
 .header-tabs {
@@ -1343,7 +1351,14 @@ body {
 .login-logo {
   height: 34px;
   width: auto;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
+}
+.login-brand {
+  margin: 0 0 16px;
+  font-family: 'Quicksand', 'Rubik', sans-serif;
+  font-weight: 600;
+  font-size: 20px;
+  color: var(--slate);
 }
 .login-title {
   margin: 0 0 10px;
@@ -1632,7 +1647,14 @@ body {
 .settings-about-logo {
   height: 26px;
   width: auto;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
+}
+.settings-brand {
+  margin: 0 0 6px;
+  font-family: 'Quicksand', 'Rubik', sans-serif;
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--slate);
 }
 .settings-version {
   margin: 6px 0 0;

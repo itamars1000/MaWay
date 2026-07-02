@@ -166,7 +166,8 @@ export default function SettingsScreen() {
           <h2 className="settings-group-title">{t('settings.about')}</h2>
           <div className="settings-card">
             <div className="settings-about">
-              <img className="settings-about-logo" src="/maway-logo.png" alt="MaWay" />
+              <img className="settings-about-logo" src="/maway-logo.png" alt="" />
+              <p className="settings-brand">MaWay</p>
               <p className="settings-note">{t('settings.aboutNote')}</p>
               <p className="settings-version">{t('settings.version', { ver: APP_VERSION })}</p>
               <button
