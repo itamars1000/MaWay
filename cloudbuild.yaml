@@ -1,24 +1,44 @@
 # Cloud Build → Cloud Run pipeline for the route engine.
-# Used by the CLI path (Path B in CLOUDRUN.md):
-#   gcloud builds submit --config cloudbuild.yaml
 #
-# Builds route_engine/Dockerfile with the repo root as context, pushes to
-# Artifact Registry, then deploys to Cloud Run. Override any value with
-# --substitutions, e.g. --substitutions=_REGION=europe-west1
+# Used two ways:
+#   - CI/CD: the GitHub trigger on `main` should point at this file
+#     (Cloud Build → Triggers → edit → Configuration: "Cloud Build
+#     configuration file" → /cloudbuild.yaml), so every push tests,
+#     deploys the service AND re-points the build Job in one pipeline.
+#   - Manually: gcloud builds submit --config cloudbuild.yaml
+#
+# Steps: build image → run pytest inside it (gates the deploy) → push →
+# deploy service → update the on-demand build Job to the same image.
+# The Job step exists because the service and Job MUST run the same image;
+# deploying only the service silently breaks worldwide on-demand builds.
+#
+# Defaults match the live deployment (service runroute-engine1, us-west1).
+# Override any value with --substitutions, e.g. --substitutions=_REGION=...
 substitutions:
-  _SERVICE: runroute-engine
-  _REGION: europe-west4
-  _REPO: runroute
-  _IMAGE: europe-west4-docker.pkg.dev/maway-498818/runroute/engine:latest
+  _SERVICE: runroute-engine1
+  _REGION: us-west1
+  _JOB: runroute-build
+  _IMAGE: us-west1-docker.pkg.dev/maway-498818/runroute/engine:latest
+  _ALLOWED_ORIGINS: https://ma-way.vercel.app
 
 steps:
   # 1. Build ("." is the build context = repo root; Dockerfile is at the root)
   - name: gcr.io/cloud-builders/docker
     args: ['build', '-t', '${_IMAGE}', '.']
-  # 2. Push to Artifact Registry
+
+  # 2. Test inside the image just built (deps + code already there). A failing
+  #    test stops the pipeline before anything is pushed or deployed.
+  - name: ${_IMAGE}
+    entrypoint: python
+    args: ['-m', 'pytest', 'route_engine/tests', '-q']
+
+  # 3. Push to Artifact Registry
   - name: gcr.io/cloud-builders/docker
     args: ['push', '${_IMAGE}']
-  # 3. Deploy to Cloud Run (2Gi/1CPU, scale-to-zero, faster cold start)
+
+  # 4. Deploy to Cloud Run (2Gi/1CPU, scale-to-zero, faster cold start).
+  #    --update-env-vars (NOT --set-env-vars) so the service's other env vars
+  #    (REGIONS_BUCKET, BUILD_JOB, GCP_PROJECT, ADMIN_TOKEN, ...) survive.
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
     args:
@@ -35,10 +55,25 @@ steps:
       - --cpu-boost
       - --allow-unauthenticated
       # ALLOWED_ORIGINS locks CORS to the web app (see route_engine/api.py).
-      - --set-env-vars=ALLOWED_ORIGINS=https://ma-way.vercel.app
+      - --update-env-vars=ALLOWED_ORIGINS=${_ALLOWED_ORIGINS}
+
+  # 5. Re-point the on-demand build Job at the same image. Fails loudly if the
+  #    Job is missing — that drift is exactly the bug this step prevents.
+  #    (Job creation is a one-time step; see CLOUDRUN.md "Worldwide on-demand".)
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - update
+      - ${_JOB}
+      - --image=${_IMAGE}
+      - --region=${_REGION}
 
 images:
   - ${_IMAGE}
+
+timeout: 1800s
 
 options:
   logging: CLOUD_LOGGING_ONLY

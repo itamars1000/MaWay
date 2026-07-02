@@ -4,8 +4,9 @@ Alternative to Render (see [DEPLOY.md](DEPLOY.md)). Cloud Run runs the same
 `route_engine/Dockerfile`, scales to zero (you pay only while serving), and
 gives 2GiB/1CPU comfortably — a good fit for nationwide coverage.
 
-**Project:** `maway-498818`  ·  **Region:** `europe-west4`  ·  **Service:** `runroute-engine`
-(change the region everywhere if you picked a different one.)
+**Project:** `maway-498818`  ·  **Region:** `us-west1`  ·  **Service:** `runroute-engine1`
+·  **Job:** `runroute-build`  (these are the live values; `cloudbuild.yaml`'s
+substitution defaults match them.)
 
 Prerequisites (done in the Cloud Console): project created, **Billing enabled**,
 and these APIs enabled — **Cloud Run Admin**, **Cloud Build**, **Artifact Registry**.
@@ -41,6 +42,18 @@ Mirrors the Render/Vercel flow.
    verify: `…/health` → `{"ok": true, ...}`.
 
 Every push to `main` now rebuilds and redeploys automatically.
+
+> **Important — point the trigger at `cloudbuild.yaml`.** The Console flow
+> creates a trigger that builds the Dockerfile and deploys **only the service**;
+> the on-demand build **Job keeps running the old image** (this broke worldwide
+> builds twice). Fix it once: Cloud Build → **Triggers** → edit the trigger →
+> Configuration: **"Cloud Build configuration file (yaml or json)"** →
+> `/cloudbuild.yaml` → Save. From then on every push runs the tests, deploys
+> the service, **and** re-points the Job — one pipeline, no drift.
+>
+> One-time prerequisite for that pipeline: the Artifact Registry repo it pushes
+> to must exist —
+> `gcloud artifacts repositories create runroute --repository-format=docker --location=us-west1`
 
 ---
 
@@ -100,6 +113,8 @@ polls until ready.
 
 The Job runs the **same image** as the service — only the command differs
 (`python -m route_engine.build_job`) — so there's nothing extra to build.
+`cloudbuild.yaml` re-points the Job to the freshly deployed image as its last
+step, so the service and Job can no longer drift apart.
 
 Set these once (replace the caps placeholders with your real values; `REGION`
 must match the service's region, e.g. `us-west1`):
