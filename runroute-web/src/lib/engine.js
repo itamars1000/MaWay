@@ -20,10 +20,13 @@ const RETRYABLE_STATUS = new Set([404, 502, 503, 504]);
 
 // First request in an uncovered area: the engine builds that area's map in the
 // cloud (async) and answers 425 `building` meanwhile. That's not a failure — we
-// poll patiently until the tile is ready (a first-time build is ~tens of seconds
-// to a few minutes incl. the data download), with a steady longer interval.
-const BUILD_POLL_MS = 6000;
-const BUILD_MAX_POLLS = 40; // ~4 min ceiling before we give up for this request
+// poll patiently until the tile is ready. Measured live: a small area takes
+// ~1-3 minutes, a dense capital (London) ~15-18 minutes — so poll fast at
+// first, then back off to a slow steady interval with a ~16 min ceiling.
+const BUILD_POLL_FAST_MS = 6000;   // first 2 minutes
+const BUILD_POLL_SLOW_MS = 15000;  // afterwards
+const BUILD_FAST_POLLS = 20;       // 20 × 6 s = 2 min
+const BUILD_MAX_POLLS = 76;        // + 56 × 15 s ≈ 16 min total ceiling
 
 /** Error with a stable `code` so the UI can show a friendly Hebrew message. */
 export class EngineError extends Error {
@@ -124,7 +127,7 @@ export async function generateFromEngine({ start, distanceKm, via, end, signal, 
           onBuilding?.(); // let the UI show "preparing this area…"
         }
         if (++polls > BUILD_MAX_POLLS) throw err; // gave it long enough
-        await delay(BUILD_POLL_MS, signal);
+        await delay(polls <= BUILD_FAST_POLLS ? BUILD_POLL_FAST_MS : BUILD_POLL_SLOW_MS, signal);
         continue;
       }
       if (++attempt >= MAX_ATTEMPTS) throw lastErr; // exhausted transient retries
