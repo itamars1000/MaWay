@@ -55,7 +55,9 @@ steps:
       - --cpu-boost
       - --allow-unauthenticated
       # ALLOWED_ORIGINS locks CORS to the web app (see route_engine/api.py).
-      - --update-env-vars=ALLOWED_ORIGINS=${_ALLOWED_ORIGINS}
+      # BUILD_TIMEOUT_S: a "building" marker older than this is retriggered;
+      # a dense capital build measured ~18 min, so 45 min avoids double-builds.
+      - --update-env-vars=ALLOWED_ORIGINS=${_ALLOWED_ORIGINS},BUILD_TIMEOUT_S=2700
 
   # 5. Re-point the on-demand build Job at the same image. Fails loudly if the
   #    Job is missing — that drift is exactly the bug this step prevents.
