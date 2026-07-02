@@ -996,6 +996,23 @@ body {
 .safety-card .action-button {
   margin-top: 4px;
 }
+.safety-legal {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-align: center;
+}
+/* Inline link-styled button (terms/privacy links inside running text). */
+.linklike {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--mint, #3e9b76);
+  text-decoration: underline;
+  cursor: pointer;
+}
 
 /* ---- Feedback row --------------------------------------------------- */
 .feedback-row {
@@ -1407,6 +1424,10 @@ body {
   flex-direction: column;
   background: var(--bg, #f4f7f8);
   overflow: hidden;
+}
+/* Legal screens (terms/privacy) open above the first-run safety gate (1100). */
+.settings-screen--legal {
+  z-index: 1200;
 }
 .settings-bar {
   display: flex;

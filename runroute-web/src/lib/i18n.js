@@ -127,6 +127,8 @@ export const TRANSLATIONS = {
     'safety.ack': 'הבנתי — אני אחראי/ת לבטיחותי',
     'safety.routeNote': 'מסלול מוצע — שימו לב לתנועה ולסביבה.',
     'safety.settingsTitle': 'בטיחות ואחריות',
+    'safety.agreePrefix': 'בהמשך השימוש אתם מאשרים את ',
+    'safety.and': ' ואת ',
 
     // Privacy policy
     'privacy.title': 'מדיניות פרטיות',
@@ -145,6 +147,28 @@ export const TRANSLATIONS = {
     'privacy.rights': 'יש לכם זכות לעיין בנתונים שלכם, לתקן אותם ולמחוק אותם. משתמשים באיחוד האירופי זכאים גם לזכויות לפי ה-GDPR.',
     'privacy.h.contact': 'יצירת קשר',
     'privacy.contact': 'בשאלות פרטיות ניתן לפנות אלינו בדוא"ל: itamars1000@gmail.com',
+
+    // Terms of use
+    'terms.title': 'תנאי שימוש',
+    'terms.link': 'תנאי השימוש',
+    'terms.updated': 'עודכן לאחרונה: יולי 2026',
+    'terms.intro': 'ברוכים הבאים ל-MaWay. השימוש באפליקציה מהווה הסכמה לתנאים אלה — אנא קראו אותם.',
+    'terms.h.service': 'מהות השירות',
+    'terms.service': 'MaWay מייצרת הצעות למסלולי ריצה באופן אוטומטי, על בסיס נתוני מפה ציבוריים (OpenStreetMap). השירות ניתן כמות שהוא (As-Is), ללא התחייבות לזמינות, לדיוק או להתאמה למטרה מסוימת.',
+    'terms.h.use': 'שימוש מותר',
+    'terms.use': 'השירות מיועד לשימוש אישי ולא מסחרי. אין לעשות בו שימוש לרעה — לרבות יצירת עומס מכוון, איסוף נתונים אוטומטי או שיבוש פעולתו.',
+    'terms.h.content': 'התוכן שלכם',
+    'terms.content': 'מסלולים ששמרתם נשארים שלכם. שמירה בחשבון מאפשרת לנו לאחסן ולהציג אותם עבורכם, בהתאם למדיניות הפרטיות.',
+    'terms.h.disclaimer': 'הסרת אחריות',
+    'terms.disclaimer': 'המסלולים הם הצעות בלבד ועלולים להיות שגויים, לא מעודכנים או לא בטוחים. האחריות לבדוק את המסלול ולשמור על בטיחותכם — כולל תנועה, תאורה, מזג אוויר ומצב גופני — מוטלת עליכם בלבד.',
+    'terms.h.liability': 'הגבלת אחריות',
+    'terms.liability': 'במידה המרבית המותרת בדין, MaWay ומפעיליה לא יישאו באחריות לכל נזק, ישיר או עקיף, הנובע מהשימוש בשירות או מהסתמכות על מסלול שהוצע בו.',
+    'terms.h.changes': 'שינויים בשירות ובתנאים',
+    'terms.changes': 'אנו רשאים לעדכן את השירות ואת התנאים מעת לעת. המשך שימוש לאחר עדכון מהווה הסכמה לתנאים המעודכנים.',
+    'terms.h.law': 'דין וסמכות שיפוט',
+    'terms.law': 'על תנאים אלה חל דין מדינת ישראל, וסמכות השיפוט הבלעדית נתונה לבתי המשפט המוסמכים בישראל.',
+    'terms.h.contact': 'יצירת קשר',
+    'terms.contact': 'לשאלות על תנאי השימוש ניתן לפנות אלינו בדוא"ל: itamars1000@gmail.com',
 
     // Accessibility statement (IS 5568 / WCAG 2.1 AA)
     'a11y.title': 'הצהרת נגישות',
@@ -332,6 +356,8 @@ export const TRANSLATIONS = {
     'safety.ack': "I understand — I'm responsible for my safety",
     'safety.routeNote': 'Suggested route — stay aware of traffic and surroundings.',
     'safety.settingsTitle': 'Safety & liability',
+    'safety.agreePrefix': 'By continuing you accept the ',
+    'safety.and': ' and the ',
 
     // Privacy policy
     'privacy.title': 'Privacy Policy',
@@ -350,6 +376,28 @@ export const TRANSLATIONS = {
     'privacy.rights': 'You have the right to access, correct and delete your data. Users in the EU also have rights under the GDPR.',
     'privacy.h.contact': 'Contact',
     'privacy.contact': 'For privacy questions, email us at itamars1000@gmail.com',
+
+    // Terms of use
+    'terms.title': 'Terms of Use',
+    'terms.link': 'Terms of use',
+    'terms.updated': 'Last updated: July 2026',
+    'terms.intro': 'Welcome to MaWay. Using the app means you accept these terms — please read them.',
+    'terms.h.service': 'The service',
+    'terms.service': 'MaWay automatically generates running-route suggestions based on public map data (OpenStreetMap). The service is provided as-is, with no guarantee of availability, accuracy or fitness for a particular purpose.',
+    'terms.h.use': 'Permitted use',
+    'terms.use': 'The service is for personal, non-commercial use. Do not abuse it — including deliberate overload, automated data harvesting, or interfering with its operation.',
+    'terms.h.content': 'Your content',
+    'terms.content': 'Routes you save remain yours. Saving to an account lets us store and display them for you, subject to the privacy policy.',
+    'terms.h.disclaimer': 'Disclaimer',
+    'terms.disclaimer': 'Routes are suggestions only and may be wrong, outdated or unsafe. Checking the route and staying safe — including traffic, lighting, weather and your own fitness — is solely your responsibility.',
+    'terms.h.liability': 'Limitation of liability',
+    'terms.liability': 'To the maximum extent permitted by law, MaWay and its operators are not liable for any damage, direct or indirect, arising from use of the service or reliance on a suggested route.',
+    'terms.h.changes': 'Changes to the service and terms',
+    'terms.changes': 'We may update the service and these terms from time to time. Continued use after an update constitutes acceptance of the updated terms.',
+    'terms.h.law': 'Governing law',
+    'terms.law': 'These terms are governed by the laws of the State of Israel, and the competent courts of Israel have exclusive jurisdiction.',
+    'terms.h.contact': 'Contact',
+    'terms.contact': 'For questions about these terms, email us at itamars1000@gmail.com',
 
     // Accessibility statement (IS 5568 / WCAG 2.1 AA)
     'a11y.title': 'Accessibility Statement',

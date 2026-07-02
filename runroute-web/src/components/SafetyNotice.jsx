@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useT } from '../state/SettingsProvider.jsx';
+import { useSettings, useT } from '../state/SettingsProvider.jsx';
 import { getSafetyAcked, setSafetyAcked } from '../lib/settings.js';
 
 /**
@@ -9,6 +9,7 @@ import { getSafetyAcked, setSafetyAcked } from '../lib/settings.js';
  */
 export default function SafetyNotice() {
   const { t } = useT();
+  const { openTerms, openPrivacy } = useSettings();
   const [acked, setAcked] = useState(getSafetyAcked);
   if (acked) return null;
 
@@ -31,6 +32,17 @@ export default function SafetyNotice() {
         <button type="button" className="action-button" onClick={accept}>
           {t('safety.ack')}
         </button>
+        <p className="safety-legal">
+          {t('safety.agreePrefix')}
+          <button type="button" className="linklike" onClick={openTerms}>
+            {t('terms.link')}
+          </button>
+          {t('safety.and')}
+          <button type="button" className="linklike" onClick={openPrivacy}>
+            {t('privacy.link')}
+          </button>
+          .
+        </p>
       </div>
     </div>
   );

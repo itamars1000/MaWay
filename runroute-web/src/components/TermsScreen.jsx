@@ -2,46 +2,47 @@ import { useSettings, useT } from '../state/SettingsProvider.jsx';
 import { ChevronIcon } from './icons.jsx';
 
 /**
- * Full-screen privacy policy, opened from Settings. Reuses the settings-screen
- * layout/classes. Content lives in i18n (privacy.*) so it stays bilingual.
+ * Full-screen terms of use, opened from Settings or the safety notice. Reuses
+ * the settings-screen layout/classes (with --legal so it opens above the
+ * first-run safety gate). Content lives in i18n (terms.*) so it stays bilingual.
  */
-const SECTIONS = ['collect', 'use', 'third', 'retention', 'rights', 'contact'];
+const SECTIONS = ['service', 'use', 'content', 'disclaimer', 'liability', 'changes', 'law', 'contact'];
 
-export default function PrivacyScreen() {
-  const { privacyOpen, closePrivacy } = useSettings();
+export default function TermsScreen() {
+  const { termsOpen, closeTerms } = useSettings();
   const { t } = useT();
-  if (!privacyOpen) return null;
+  if (!termsOpen) return null;
 
   return (
     <div className="settings-screen settings-screen--legal" role="dialog" aria-modal="true"
-         aria-label={t('privacy.title')}>
+         aria-label={t('terms.title')}>
       <header className="settings-bar">
         <button
           type="button"
           className="settings-back"
           aria-label={t('settings.close')}
-          onClick={closePrivacy}
+          onClick={closeTerms}
         >
           <ChevronIcon size={22} />
         </button>
-        <h1 className="settings-heading">{t('privacy.title')}</h1>
+        <h1 className="settings-heading">{t('terms.title')}</h1>
         <span className="settings-bar-spacer" />
       </header>
 
       <div className="settings-body">
         <section className="settings-group">
           <div className="settings-card">
-            <p className="settings-note">{t('privacy.intro')}</p>
-            <p className="settings-version">{t('privacy.updated')}</p>
+            <p className="settings-note">{t('terms.intro')}</p>
+            <p className="settings-version">{t('terms.updated')}</p>
           </div>
         </section>
 
         {SECTIONS.map((key) => (
           <section className="settings-group" key={key}>
-            <h2 className="settings-group-title">{t(`privacy.h.${key}`)}</h2>
+            <h2 className="settings-group-title">{t(`terms.h.${key}`)}</h2>
             <div className="settings-card">
               <p className="settings-note" style={{ marginBottom: 0 }}>
-                {t(`privacy.${key}`)}
+                {t(`terms.${key}`)}
               </p>
             </div>
           </section>
