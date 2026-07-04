@@ -11,6 +11,7 @@
     "gen:og": "node scripts/generate-og-image.mjs"
   },
   "dependencies": {
+    "@sentry/react": "^10.63.0",
     "@supabase/supabase-js": "^2.108.0",
     "leaflet": "^1.9.4",
     "react": "^18.3.1",

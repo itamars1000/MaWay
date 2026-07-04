@@ -4,8 +4,6 @@ Guidance for working in this repository. **Maway / RunRoute** is a running-route
 app — generate closed running loops that prefer straight, continuous streets
 (few sharp turns) and show them on a map. The product UI is in Hebrew (RTL).
 
-> Note: this directory is **not** a git repository.
-
 ## Three subprojects
 
 This repo contains three independent codebases that together form the product:
@@ -35,8 +33,6 @@ also has its own README with deeper detail:
   returns a GeoJSON `FeatureCollection` of loop candidates, best-first. The UI
   shows the first and cycles with "מסלול הבא". `end_lat/lng` switches to an A→B path.
 - `POST /feedback` records a 👍/👎 so the scorer's weights learn (see `learning.py`).
-- The README in `runroute-web` mentions OpenRouteService — that's the **legacy**
-  path. The current default is the local Python engine.
 
 ## Running things
 
@@ -135,8 +131,10 @@ for the file-by-file map.
   enforced ([analysis_options.yaml](analysis_options.yaml)).
 
 ## Secrets / config
-- `runroute-web/.env` — `VITE_ENGINE_URL` (engine base URL); legacy `VITE_ORS_API_KEY`.
-  Copy from `.env.example`.
+- `runroute-web/.env` — `VITE_ENGINE_URL` (engine base URL); optional
+  `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` (Google sign-in, required to use
+  the app once set — no guest mode); optional `VITE_SENTRY_DSN` (error
+  tracking, degrades to console-only when unset). Copy from `.env.example`.
 - Google Maps API key for the Flutter app goes in the generated `android/`/`ios/`
   platform files (instructions in [README.flutter.md](README.flutter.md)).
 - `route.geojson` (root) and `cache/`, `route_engine/regions/_cache/` hold

@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import { getLang } from '../lib/settings.js';
+import { reportError } from '../lib/sentry.js';
 
 /* Wraps the whole app (see main.jsx), so it must not depend on any provider —
    language comes straight from localStorage and the strings live here. */
@@ -27,8 +28,8 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    // Surfaces in the browser console and in any error tracker hooked later.
     console.error('Unhandled app error:', error, info?.componentStack);
+    reportError(error, { componentStack: info?.componentStack });
   }
 
   render() {
