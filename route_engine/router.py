@@ -62,7 +62,10 @@ MAX_RETURNED = 6           # cap on candidates returned to the client
 LANDMARK_MIN_M = 7000
 # A returned loop must be at least the requested length (hard floor in
 # find_loop_candidates). This is the upper sanity cap so it isn't wildly long.
-DIST_BAND_HI = 1.6            # ≤ 160% of target
+# Tightened from 1.6: a straighter-but-much-longer loop could otherwise
+# outscore an accurate one (turns are weighted above distance — see _score),
+# so users sometimes got routes far past what they asked for.
+DIST_BAND_HI = 1.2            # ≤ 120% of target
 # A candidate is "accurate enough" to count toward the early-stop, and to LEAD
 # the returned list, when it's within this band; slightly looser than the
 # per-pass 1.05 break so it's reliably achievable on real street grids.
@@ -787,14 +790,27 @@ def find_loop_candidates(region, lat, lng, target_m, n=None,
                     if f["properties"]["sharp_turns_per_km"] <= MAX_TURNS_PER_KM]
         return _finalize(_dedupe(low_turn if low_turn else meets), target_m)
 
-    # No route here reaches the requested length → return the LONGEST available
-    # (closest from below), flagged so the UI says it's shorter than requested.
+    # Nothing landed inside [target, hi]. Two different situations end up here,
+    # and they need OPPOSITE tie-breaks:
+    #   - some shapes DID reach target, just past hi (a chunky grid where the
+    #     next size step jumps well over) → prefer the SMALLEST overshoot, not
+    #     the largest — otherwise tightening `hi` could make results worse.
+    #   - no shape ever reached target (area too small for this distance) →
+    #     fall back to the LARGEST under-target loop (closest from below),
+    #     flagged below_requested for the UI.
+    over_target = [f for f in results if f["properties"]["distance_m"] >= target_m]
+    if over_target:
+        closest_over = _dedupe(
+            sorted(over_target, key=lambda f: f["properties"]["distance_m"])
+        )
+        for f in closest_over:
+            f["properties"]["below_requested"] = False
+        return _finalize(closest_over, target_m, resort=False)
+
     longest = _dedupe(sorted(results, key=lambda f: f["properties"]["distance_m"],
                              reverse=True))[:3]
     for f in longest:
-        f["properties"]["below_requested"] = (
-            f["properties"]["distance_m"] < target_m
-        )
+        f["properties"]["below_requested"] = True  # all < target_m by construction
     # Elevation for display only — keep the intentional distance-descending order.
     return _finalize(longest, target_m, resort=False)
 
