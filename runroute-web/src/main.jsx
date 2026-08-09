@@ -31,7 +31,7 @@ hideSplash();
 function hideSplash() {
   const el = document.getElementById('app-splash');
   if (!el) return;
-  const MIN_VISIBLE_MS = 450;
+  const MIN_VISIBLE_MS = 1600;
   const FADE_MS = 300;
   const elapsed = Date.now() - (window.__splashStart || Date.now());
   const wait = Math.max(0, MIN_VISIBLE_MS - elapsed);
