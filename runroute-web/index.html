@@ -68,6 +68,70 @@
       href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Rubik:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+
+    <!-- Launch splash: plain HTML + inline CSS so it paints instantly, before
+         the JS bundle (and its fonts/data) have loaded — covers the blank-page
+         gap on a cold PWA launch. Removed by main.jsx once React has mounted.
+         Kept in sync by hand with the brand tokens in src/index.css. -->
+    <style>
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 3000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: radial-gradient(120% 80% at 50% 0%, #ffffff 0%, #e9f6ef 70%, #dff0e8 100%);
+        transition: opacity 0.3s ease;
+      }
+      #app-splash img {
+        width: 88px;
+        height: auto;
+        animation: app-splash-breathe 1.8s ease-in-out infinite;
+      }
+      #app-splash span {
+        font-family: 'Quicksand', 'Rubik', sans-serif;
+        font-weight: 600;
+        font-size: 20px;
+        color: #4a5a6b;
+      }
+      #app-splash .app-splash-dots {
+        display: flex;
+        gap: 6px;
+        margin-top: 4px;
+      }
+      #app-splash .app-splash-dots i {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #3e9b76;
+        animation: app-splash-dot 1.2s ease-in-out infinite;
+      }
+      #app-splash .app-splash-dots i:nth-child(2) { animation-delay: 0.15s; }
+      #app-splash .app-splash-dots i:nth-child(3) { animation-delay: 0.3s; }
+      @keyframes app-splash-breathe {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.08); }
+      }
+      @keyframes app-splash-dot {
+        0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+        40% { opacity: 1; transform: translateY(-3px); }
+      }
+      /* Respect the in-app a11y toggle (set before paint, see the script above)
+         and the OS-level preference for first-time visitors. */
+      .a11y-reduce-motion #app-splash img,
+      .a11y-reduce-motion #app-splash .app-splash-dots i {
+        animation: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #app-splash img,
+        #app-splash .app-splash-dots i {
+          animation: none;
+        }
+      }
+    </style>
   </head>
   <body>
     <script>
@@ -79,6 +143,14 @@
           document.documentElement.dir = 'rtl';
         }
       } catch (e) {}
+    </script>
+    <div id="app-splash" aria-hidden="true">
+      <img src="/maway-logo.png" alt="" />
+      <span>MaWay</span>
+      <div class="app-splash-dots"><i></i><i></i><i></i></div>
+    </div>
+    <script>
+      window.__splashStart = Date.now();
     </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

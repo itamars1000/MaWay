@@ -15,3 +15,39 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </ErrorBoundary>
   </React.StrictMode>,
 );
+
+hideSplash();
+
+/** Fade out and remove the static #app-splash (see index.html) once React has
+ * mounted. Keeps it on screen for a minimum stretch so a fast load doesn't
+ * flash it for a few ms, which reads as broken rather than "polished".
+ *
+ * Deliberately setTimeout-only, NOT requestAnimationFrame: rAF only fires
+ * while the page is actively compositing frames, which a backgrounded or
+ * prerendered tab may never do — that would leave the splash stuck forever
+ * (verified: it does exactly this in a headless/non-composited preview).
+ * setTimeout fires regardless. A hard-cap timer is a last-resort safety net
+ * in case anything above still goes wrong. */
+function hideSplash() {
+  const el = document.getElementById('app-splash');
+  if (!el) return;
+  const MIN_VISIBLE_MS = 450;
+  const FADE_MS = 300;
+  const elapsed = Date.now() - (window.__splashStart || Date.now());
+  const wait = Math.max(0, MIN_VISIBLE_MS - elapsed);
+
+  const remove = () => {
+    if (!el.isConnected) return; // already removed
+    const reduceMotion = document.documentElement.classList.contains('a11y-reduce-motion')
+      || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) {
+      el.remove();
+      return;
+    }
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), FADE_MS);
+  };
+
+  setTimeout(remove, wait);
+  setTimeout(() => el.isConnected && el.remove(), 4000); // hard safety net
+}
