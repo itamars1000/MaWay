@@ -570,7 +570,7 @@ body {
   background: transparent;
   outline: none;
   font: inherit;
-  font-size: 15px;
+  font-size: 16px; /* >= 16px — see the note on .saved-rename (iOS focus zoom) */
   font-weight: 500;
   color: var(--ink);
   text-align: right;
@@ -1155,7 +1155,12 @@ body {
   border-radius: 8px;
   padding: 4px 8px;
   font: inherit;
-  font-size: 14px;
+  /* Must stay >= 16px: iOS Safari auto-zooms the whole page when a focused
+     input is smaller, and doesn't reliably zoom back out — and this input is
+     autoFocused, so tapping the edit pencil alone triggered it. Fixing it via
+     viewport maximum-scale would disable pinch-zoom, which the accessibility
+     statement explicitly promises. Same applies to .loc-input. */
+  font-size: 16px;
   font-weight: 600;
   color: var(--ink);
   outline: none;
