@@ -177,26 +177,19 @@ export default function SettingsScreen() {
               <p className="settings-brand">MaWay</p>
               <p className="settings-note">{t('settings.aboutNote')}</p>
               <p className="settings-version">{t('settings.version', { ver: APP_VERSION })}</p>
-              <button
-                type="button"
-                className="settings-btn settings-btn--ghost"
-                onClick={openPrivacy}
-              >
-                {t('privacy.link')}
+            </div>
+            <div className="settings-links">
+              <button type="button" className="settings-link" onClick={openPrivacy}>
+                <span>{t('privacy.link')}</span>
+                <ChevronIcon size={18} className="settings-link-chev" />
               </button>
-              <button
-                type="button"
-                className="settings-btn settings-btn--ghost"
-                onClick={openTerms}
-              >
-                {t('terms.link')}
+              <button type="button" className="settings-link" onClick={openTerms}>
+                <span>{t('terms.link')}</span>
+                <ChevronIcon size={18} className="settings-link-chev" />
               </button>
-              <button
-                type="button"
-                className="settings-btn settings-btn--ghost"
-                onClick={openA11y}
-              >
-                {t('a11y.link')}
+              <button type="button" className="settings-link" onClick={openA11y}>
+                <span>{t('a11y.link')}</span>
+                <ChevronIcon size={18} className="settings-link-chev" />
               </button>
             </div>
           </div>

@@ -1647,6 +1647,44 @@ body {
   color: var(--muted);
 }
 
+/* Legal links under About — iOS-settings style rows (label + chevron) rather
+   than stacked full-width buttons, which read as one grey slab. */
+.settings-links {
+  margin-top: 14px;
+  border-top: 1px solid var(--hair);
+}
+.settings-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 2px; /* ~46px tall — above the 44px touch-target minimum */
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: start; /* .settings-about centers its text; rows must not inherit it */
+  cursor: pointer;
+}
+.settings-link + .settings-link {
+  border-top: 1px solid var(--hair);
+}
+.settings-link:active {
+  background: var(--slate-soft);
+}
+.settings-link-chev {
+  flex-shrink: 0;
+  color: var(--faint);
+}
+/* ChevronIcon points left (‹) — already correct for RTL; flip it for LTR.
+   Same [dir=…] pattern the distance slider uses above. */
+[dir='ltr'] .settings-link-chev {
+  transform: scaleX(-1);
+}
+
 /* Map-style picker */
 .mapstyle-row {
   display: grid;
