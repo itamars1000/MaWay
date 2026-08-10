@@ -35,6 +35,7 @@ function MapController({
   const map = useMap();
   // Stable dependency for the route geometry (null when no route yet).
   const routeKey = route ? route.map((p) => p.join(',')).join('|') : null;
+  const fitTimer = useRef(null);
 
   // Fit the route into view, padded to clear the header and the sheet.
   const fitRoute = () => {
@@ -49,10 +50,19 @@ function MapController({
   // Auto: fit a freshly generated route; otherwise center on the start point as
   // soon as it's known (covered by the loading overlay on first load). Also
   // re-runs when the sheet resizes so the content stays visible above it.
+  //
+  // The sheet reports its height on every pointermove tick while being
+  // dragged (BottomSheet.jsx, unthrottled), so `sheetFraction` can change
+  // dozens of times per second of dragging. Debounce the re-fit instead of
+  // calling it straight from the effect: measured 20 animated (0.4s)
+  // flyToBounds calls fired during a single ~1s drag before this fix — each
+  // one restarts the fly animation, so the map fights any manual zoom/pan the
+  // user attempts mid-drag and the view never settles until the finger lifts.
   useEffect(() => {
     if (!map) return;
+    clearTimeout(fitTimer.current);
     if (route && route.length) {
-      fitRoute();
+      fitTimer.current = setTimeout(fitRoute, 120);
     } else if (center) {
       // Jump straight to the location with NO visible animation, while the
       // loading overlay still covers the map. Then signal so the overlay lifts
@@ -62,6 +72,7 @@ function MapController({
       });
       if (onCentered) onCentered();
     }
+    return () => clearTimeout(fitTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeKey, center?.lat, center?.lng, sheetFraction, map]);
 
