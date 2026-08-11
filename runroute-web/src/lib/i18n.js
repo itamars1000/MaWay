@@ -57,8 +57,6 @@ export const TRANSLATIONS = {
     // Save / feedback
     'save.save': 'שמור',
     'save.saved': 'נשמר',
-    'share.story': 'שתף סטורי',
-    'share.sharing': 'מכין…',
     'feedback.thanks': 'תודה! זה ישפר את המסלולים הבאים 🙏',
     'feedback.q': 'איך המסלול?',
     'feedback.goodAria': 'מסלול טוב',
@@ -285,8 +283,6 @@ export const TRANSLATIONS = {
     // Save / feedback
     'save.save': 'Save',
     'save.saved': 'Saved',
-    'share.story': 'Share story',
-    'share.sharing': 'Preparing…',
     'feedback.thanks': 'Thanks! This will improve future routes 🙏',
     'feedback.q': "How's the route?",
     'feedback.goodAria': 'Good route',

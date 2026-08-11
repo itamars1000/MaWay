@@ -11,7 +11,6 @@ import { useT } from '../state/SettingsProvider.jsx';
 import { useRouteGenerator } from '../hooks/useRouteGenerator.js';
 import { sendFeedback } from '../lib/engine.js';
 import { downloadGpx } from '../lib/gpx.js';
-import { shareRouteStory } from '../lib/shareCard.js';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import BuildingPanel from './BuildingPanel.jsx';
 import {
@@ -22,7 +21,6 @@ import {
   ArrowDownIcon,
   BookmarkIcon,
   DownloadIcon,
-  ShareIcon,
   TrashIcon,
 } from './icons.jsx';
 
@@ -64,29 +62,6 @@ export default function RouteForm() {
   const { t, lang } = useT();
   const { generate } = useRouteGenerator();
   const [feedbackGiven, setFeedbackGiven] = useState(null); // 'up' | 'down' | null
-  const [sharing, setSharing] = useState(false);
-
-  const shareStory = async () => {
-    if (!generatedRoute || sharing) return;
-    setSharing(true);
-    try {
-      await shareRouteStory({
-        route: generatedRoute,
-        rtl: lang === 'he',
-        labels: {
-          appName: 'MaWay',
-          tagline: 'Find Your Way',
-          km: t('units.km'),
-          ascent: t('stat.ascent'),
-          descent: t('stat.descent'),
-        },
-      });
-    } catch {
-      /* nothing actionable to show; the button just re-enables */
-    } finally {
-      setSharing(false);
-    }
-  };
 
   // Fill percentage for the mint track of the range input.
   const fillPct = Math.round(
@@ -347,16 +322,6 @@ export default function RouteForm() {
               {t('route.next')}
             </button>
           )}
-
-          <button
-            type="button"
-            className="share-story-btn"
-            onClick={shareStory}
-            disabled={sharing}
-          >
-            <ShareIcon size={18} />
-            {sharing ? t('share.sharing') : t('share.story')}
-          </button>
 
           <div className="result-actions">
             <button
