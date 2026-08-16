@@ -1387,6 +1387,89 @@ body {
   transform: translateY(1px);
   box-shadow: 0 6px 16px rgba(47, 58, 69, 0.16);
 }
+
+/* Email + password sign-in, revealed under the Google button. */
+.auth-alt {
+  margin-top: 14px;
+  padding: 10px;
+  border: none;
+  background: none;
+  color: var(--slate);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.auth-form {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.auth-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.auth-tab {
+  flex: 1;
+  height: 38px;
+  border: none;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--muted);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.auth-tab.active {
+  background: #fff;
+  color: var(--slate);
+  box-shadow: 0 4px 12px rgba(47, 58, 69, 0.12);
+}
+.auth-input {
+  height: 50px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px; /* >= 16px — see the note on .saved-rename (iOS focus zoom) */
+  font-weight: 500;
+  box-shadow: 0 4px 14px rgba(47, 58, 69, 0.1);
+}
+.auth-input::placeholder {
+  color: var(--faint);
+}
+.auth-error {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #c0392b;
+}
+.auth-submit {
+  height: 52px;
+  border: none;
+  border-radius: 15px;
+  background: var(--slate);
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.auth-submit:active {
+  transform: translateY(1px);
+}
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
 /* Estimated-time line in the route result */
 .time-est {
   margin: 10px 0 0;
