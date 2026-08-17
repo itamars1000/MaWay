@@ -13,6 +13,7 @@ import { sendFeedback } from '../lib/engine.js';
 import { downloadGpx } from '../lib/gpx.js';
 import AddressAutocomplete from './AddressAutocomplete.jsx';
 import BuildingPanel from './BuildingPanel.jsx';
+import ElevationProfile from './ElevationProfile.jsx';
 import {
   LoopIcon,
   AbIcon,
@@ -266,6 +267,8 @@ export default function RouteForm() {
           </div>
         </div>
       )}
+
+      {generatedRoute && <ElevationProfile points={generatedRoute.elevation} />}
 
       {/* CTA */}
       {building ? (

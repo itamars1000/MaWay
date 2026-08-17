@@ -23,6 +23,32 @@ def _feature():
     }
 
 
+def test_attaches_rounded_profile(no_wait, monkeypatch):
+    # The sampled series is what the client charts; it must survive on the
+    # feature, rounded, alongside the totals.
+    monkeypatch.setattr(elevation, "_fetch_elevations",
+                        lambda latlngs, timeout: [10.4, 30.6])
+
+    feats = elevation.add_elevation([_feature()])
+
+    assert feats[0]["properties"]["elevation"] == [10, 31]
+
+
+def test_profile_drops_nulls(no_wait, monkeypatch):
+    # Open-Meteo can return null for a point; the client expects plain numbers.
+    # Needs a 3-point route — the response is sliced per feature by sample count.
+    three_pt = {
+        "geometry": {"coordinates": [[34.78, 32.08], [34.79, 32.09], [34.80, 32.10]]},
+        "properties": {},
+    }
+    monkeypatch.setattr(elevation, "_fetch_elevations",
+                        lambda latlngs, timeout: [10.0, None, 25.0])
+
+    feats = elevation.add_elevation([three_pt])
+
+    assert feats[0]["properties"]["elevation"] == [10, 25]
+
+
 def test_transient_failure_retries_then_succeeds(no_wait, monkeypatch):
     calls = {"n": 0}
 

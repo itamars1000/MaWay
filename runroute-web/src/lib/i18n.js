@@ -35,6 +35,11 @@ export const TRANSLATIONS = {
     'stat.ascent': 'מ׳ עלייה',
     'stat.descent': 'מ׳ ירידה',
 
+    // Elevation profile chart
+    'elev.title': 'פרופיל גובה',
+    'elev.m': 'מ׳',
+    'elev.aria': 'פרופיל גובה המסלול, בין {lo} ל-{hi} מטר',
+
     // CTA buttons
     'cta.loading': 'מחשב מסלול…',
     'cta.new': 'מסלול חדש',
@@ -282,6 +287,11 @@ export const TRANSLATIONS = {
     // Stats
     'stat.ascent': 'm ascent',
     'stat.descent': 'm descent',
+
+    // Elevation profile chart
+    'elev.title': 'Elevation profile',
+    'elev.m': 'm',
+    'elev.aria': 'Route elevation profile, between {lo} and {hi} metres',
 
     // CTA buttons
     'cta.loading': 'Calculating route…',

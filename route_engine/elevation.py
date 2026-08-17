@@ -83,10 +83,15 @@ def _ascent_descent(elevs):
 
 
 def add_elevation(features, timeout: float = 4.0):
-    """Attach ascent_m/descent_m to every feature in ONE Open-Meteo request:
-    resample each route, concatenate the points (≤100 total), fetch once, then
-    split the elevations back per route. Best-effort — leave props unset on any
-    failure (the UI shows "—")."""
+    """Attach ascent_m/descent_m — plus the sampled `elevation` profile itself —
+    to every feature in ONE Open-Meteo request: resample each route, concatenate
+    the points (≤100 total), fetch once, then split the elevations back per
+    route. Best-effort — leave props unset on any failure (the UI shows "—").
+
+    The profile is what the client draws as a chart. It is coarse by design:
+    the ≤100-point budget is shared across all candidates, so a 6-candidate
+    response gives ~16 samples each — enough for the shape of the climbs, not
+    for fine detail."""
     if not features:
         return features
     per = max(2, _MAX_POINTS // len(features))
@@ -107,4 +112,11 @@ def add_elevation(features, timeout: float = 4.0):
             up, down = _ascent_descent(seg)
             feat["properties"]["ascent_m"] = up
             feat["properties"]["descent_m"] = down
+            # The profile the client charts. Rounded — sub-metre precision is
+            # noise from a 90 m DEM and just inflates the payload. Nulls (a
+            # point Open-Meteo had no data for) are dropped so the client can
+            # treat this as a plain number series.
+            feat["properties"]["elevation"] = [
+                round(e) for e in seg if e is not None
+            ]
     return features

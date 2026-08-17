@@ -77,6 +77,9 @@ function featureToCandidate(feature) {
     belowRequested: p.below_requested ?? false,
     directOnly: p.direct_only ?? false,
     ascentM: p.ascent_m ?? null,
+    // Sampled height series for the profile chart (coarse: ~16 points when the
+    // engine returns 6 candidates). Absent when Open-Meteo was unreachable.
+    elevation: Array.isArray(p.elevation) ? p.elevation : null,
     descentM: p.descent_m ?? null,
     score: 1,
   };

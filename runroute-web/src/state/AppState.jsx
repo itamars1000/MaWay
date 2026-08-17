@@ -189,6 +189,7 @@ export function AppStateProvider({ children }) {
         scenicFrac: generatedRoute.scenicFrac ?? 0,
         ascentM: generatedRoute.ascentM ?? null,
         descentM: generatedRoute.descentM ?? null,
+        elevation: generatedRoute.elevation ?? null,
         coords: generatedRoute.coords,
       };
       setSavedRoutes((list) => {
@@ -238,6 +239,7 @@ export function AppStateProvider({ children }) {
           pleasantFrac: item.pleasantFrac ?? 0,
           scenicFrac: item.scenicFrac ?? 0,
           ascentM: item.ascentM ?? null,
+          elevation: item.elevation ?? null,
           descentM: item.descentM ?? null,
           score: 1,
         },

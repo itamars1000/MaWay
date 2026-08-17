@@ -1484,6 +1484,40 @@ body {
 }
 
 /* Estimated-time line in the route result */
+/* Elevation profile chart under the route stats */
+.elev {
+  margin-top: 14px;
+  padding: 12px 14px 8px;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.elev-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.elev-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.elev-range {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--slate);
+  /* Always "low–high" left-to-right, matching the chart's fixed direction. */
+  direction: ltr;
+}
+.elev-svg {
+  display: block;
+  width: 100%;
+  height: 64px;
+  overflow: visible;
+}
+
 .time-est {
   margin: 10px 0 0;
   text-align: center;
