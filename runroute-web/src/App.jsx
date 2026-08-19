@@ -13,6 +13,7 @@ import TermsScreen from './components/TermsScreen.jsx';
 import AccessibilityScreen from './components/AccessibilityScreen.jsx';
 import A11yWidget from './components/A11yWidget.jsx';
 import SafetyNotice from './components/SafetyNotice.jsx';
+import InstallPrompt from './components/InstallPrompt.jsx';
 
 /** Requests the user's location once on mount. */
 function GeolocationBootstrap() {
@@ -52,6 +53,7 @@ export default function App() {
           <AccessibilityScreen />
           <A11yWidget />
           <SafetyNotice />
+          <InstallPrompt />
         </AppStateProvider>
       </SettingsProvider>
     </AuthProvider>

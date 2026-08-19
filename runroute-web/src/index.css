@@ -1462,6 +1462,66 @@ body {
   cursor: pointer;
 }
 
+/* "Add to home screen" card. Floats just above the bottom sheet rather than
+   covering the map — it is a suggestion, not a decision the user owes us, so it
+   never blocks the app the way the safety notice does. */
+.install-card {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 30; /* above the sheet (z20), below nothing else */
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 34px rgba(20, 30, 40, 0.26);
+}
+.install-text {
+  flex: 1;
+  min-width: 0;
+}
+.install-title {
+  margin: 0 0 3px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink, #2b3540);
+}
+.install-body {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.install-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.install-btn {
+  padding: 9px 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--slate);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.install-dismiss {
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
 /* Way past the gate: an account only adds cross-device sync, so this stays
    visible but quieter than the sign-in actions above it. */
 .login-guest {

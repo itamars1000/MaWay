@@ -78,7 +78,7 @@ export const TRANSLATIONS = {
     'build.step1': 'מורידים מפת רחובות…',
     'build.step2': 'בונים רשת דרכים…',
     'build.step3': 'מחשבים מסלולים מתאימים…',
-    'build.note': 'פעם ראשונה באזור הזה — בדרך כלל כדקה. בפעם הבאה זה יהיה מיידי.',
+    'build.note': 'פעם ראשונה באזור הזה — בדרך כלל 1–3 דקות, ובאזור חדש בחו״ל עד רבע שעה. אפשר לסגור ולחזור; בפעם הבאה זה יהיה מיידי.',
 
     // Login screen
     'login.ariaLabel': 'התחברות',
@@ -108,6 +108,11 @@ export const TRANSLATIONS = {
     'login.err.cap': 'ההרשמה סגורה כרגע — אנחנו בגרסת בדיקה עם מספר משתמשים מוגבל.',
     'login.err.generic': 'משהו השתבש. נסו שוב.',
     'login.continueAsGuest': 'המשך ללא חשבון',
+    'install.title': 'להוסיף למסך הבית?',
+    'install.body': 'התקינו את MaWay כאפליקציה — נפתחת מהר יותר, במסך מלא, בלי סרגל הדפדפן.',
+    'install.bodyIos': 'לחצו על כפתור השיתוף בסרגל הדפדפן, ואז על "הוסף למסך הבית". ייפתח במסך מלא, כמו אפליקציה.',
+    'install.action': 'התקנה',
+    'install.dismiss': 'לא עכשיו',
 
     // Map overlay / FABs
     'map.locating': 'מאתר מיקום…',
@@ -251,7 +256,7 @@ export const TRANSLATIONS = {
     'err.no-end': 'בחר נקודת סיום (הקש על המפה או חפש כתובת).',
     'err.end-uncovered': 'היעד מחוץ לאזור הזמין כרגע — נסה יעד קרוב יותר.',
     'err.no-path': 'לא נמצא מסלול מ-A ל-B. נסה יעד אחר או מרחק אחר.',
-    'err.building': 'מכינים את האזור הזה בפעם הראשונה. בעיר גדולה זה יכול לקחת עד רבע שעה — אפשר לסגור ולנסות שוב מאוחר יותר.',
+    'err.building': 'האזור עדיין נבנה ברקע — זה לוקח יותר מהרגיל. נסו שוב בעוד כמה דקות, ואז המסלול ייווצר מיד.',
     'err.build-failed': 'לא הצלחנו להכין את האזור הזה כרגע — נסה שוב בעוד רגע.',
     'err.rate-limited': 'יותר מדי בקשות — נסה שוב בעוד רגע.',
     'err.build-busy': 'יש כרגע עומס בהכנת אזורים חדשים — נסה שוב מאוחר יותר.',
@@ -334,7 +339,7 @@ export const TRANSLATIONS = {
     'build.step1': 'Downloading street map…',
     'build.step2': 'Building road network…',
     'build.step3': 'Computing suitable routes…',
-    'build.note': "First time in this area — usually about a minute. Next time it'll be instant.",
+    'build.note': "First time in this area — usually 1–3 minutes, and up to 15 for a new area abroad. You can close this and come back; next time it's instant.",
 
     // Login screen
     'login.ariaLabel': 'Sign in',
@@ -364,6 +369,11 @@ export const TRANSLATIONS = {
     'login.err.cap': 'Sign-ups are closed right now — we are in a limited testing phase.',
     'login.err.generic': 'Something went wrong. Please try again.',
     'login.continueAsGuest': 'Continue without an account',
+    'install.title': 'Add to your home screen?',
+    'install.body': 'Install MaWay as an app — it opens faster, full screen, with no browser bar.',
+    'install.bodyIos': 'Tap the Share button in the browser bar, then "Add to Home Screen". It opens full screen, just like an app.',
+    'install.action': 'Install',
+    'install.dismiss': 'Not now',
 
     // Map overlay / FABs
     'map.locating': 'Finding location…',
@@ -507,7 +517,7 @@ export const TRANSLATIONS = {
     'err.no-end': 'Choose an end point (tap the map or search for an address).',
     'err.end-uncovered': 'The destination is outside the currently available area — try a closer destination.',
     'err.no-path': 'No route from A to B found. Try a different destination or distance.',
-    'err.building': 'Preparing this area for the first time. A large city can take up to 15 minutes — you can close this and try again later.',
+    'err.building': 'This area is still being built in the background — it is taking longer than usual. Try again in a few minutes and the route will come up right away.',
     'err.build-failed': "We couldn't prepare this area right now — please try again in a moment.",
     'err.rate-limited': 'Too many requests — please try again in a moment.',
     'err.build-busy': "New areas are busy being prepared right now — please try again later.",

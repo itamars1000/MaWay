@@ -5,6 +5,9 @@ import './index.css';
 import App from './App.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { initSentry } from './lib/sentry.js';
+// Imported for its side effect: Chrome fires `beforeinstallprompt` before React
+// mounts, so the listener has to be installed at startup or the event is lost.
+import './lib/pwa.js';
 
 initSentry();
 
