@@ -63,6 +63,18 @@ def _ondemand_region(lat, lng, distance, span_m=None):
 async def lifespan(app: FastAPI):
     regions = graph_store.load_all()
     print(f"loaded {len(regions)} region(s): {[r.name for r in regions]}")
+    # Verify up front that each indexed region's pickle is really there.
+    # Regions load lazily, so without this a missing pickle stays invisible
+    # until a user happens to ask for that city — which is how 11 "covered"
+    # cities served on-demand builds for an hour on 2026-08-19 while /health
+    # cheerfully reported all 11. Printed at ERROR level so it is alertable.
+    coverage = graph_store.audit(force=True)
+    if coverage["missing"]:
+        print(
+            f"ERROR: {len(coverage['missing'])} of {coverage['indexed']} regions "
+            f"have no pickle in storage -> {coverage['missing']}; those cities "
+            f"fall back to slow on-demand builds"
+        )
     yield
 
 
@@ -85,9 +97,16 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
+    # `regions` lists what the INDEX claims; `coverage` is what storage actually
+    # has. They diverge when a pickle is deleted, and that gap is invisible
+    # otherwise — alert on `degraded`, not on `ok` (the process is fine, the
+    # data isn't).
+    coverage = graph_store.audit()
     return {
         "ok": True,
+        "degraded": bool(coverage["missing"] or coverage["error"]),
         "regions": [r.name for r in graph_store.regions()],
+        "coverage": coverage,
         "feedback_count": learning.count(),
         # On-demand worldwide pipeline status (booleans only — no secret values).
         # `enabled` must be true for uncovered areas to build in the cloud;

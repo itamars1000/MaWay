@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 import pickle
+import time
 from collections import OrderedDict
 
 import numpy as np
@@ -296,6 +297,48 @@ def load_all(regions_dir: str = _REGIONS_DIR):
 def regions():
     """Lightweight metadata for every available region (no graphs loaded)."""
     return _INDEX
+
+
+# ---- coverage audit -------------------------------------------------------
+# The index and the pickles are separate objects, so the index can list cities
+# whose data is gone. That exact state ran unnoticed for an hour on 2026-08-19:
+# `/health` reported 11 regions the whole time (it listed index entries), while
+# every lookup 404'd and users waited on on-demand builds instead. Loading is
+# lazy, so nothing notices until a user happens to ask for that city.
+#
+# This checks that each indexed region's pickle actually exists. Results are
+# cached: a check is one HEAD per region, too costly to repeat on every
+# /health, and coverage changes rarely.
+_AUDIT_TTL_S = float(os.getenv("REGIONS_AUDIT_TTL_S", "300"))
+_audit_cache: dict = {"at": 0.0, "result": None}
+
+
+def audit(force: bool = False) -> dict:
+    """{indexed, available, missing:[names], checked_at} for the region index.
+
+    `missing` non-empty means the service is serving degraded coverage: those
+    cities fall back to slow on-demand builds. Never raises — a storage failure
+    is reported as `error` rather than breaking the caller (/health).
+    """
+    now = time.time()
+    cached = _audit_cache["result"]
+    if not force and cached is not None and now - _audit_cache["at"] < _AUDIT_TTL_S:
+        return cached
+
+    result = {"indexed": len(_INDEX), "available": 0, "missing": [], "error": None}
+    try:
+        for m in _INDEX:
+            if _exists(m.file):
+                result["available"] += 1
+            else:
+                result["missing"].append(m.name)
+    except Exception as exc:  # noqa: BLE001 — never let an audit break /health
+        result["error"] = str(exc)[:200]
+
+    result["checked_at"] = now
+    _audit_cache["at"] = now
+    _audit_cache["result"] = result
+    return result
 
 
 def _get_region(file: str) -> "Region":
