@@ -21,9 +21,13 @@ function authErrorCode(error) {
   if (msg.includes('already registered') || msg.includes('already exists')) return 'taken';
   if (msg.includes('invalid login credentials')) return 'badCreds';
   if (msg.includes('email not confirmed')) return 'unconfirmed';
+  // Before the generic password/email matches below: the real throttle messages
+  // ("Email rate limit exceeded", "over_email_send_rate_limit") contain "email",
+  // so checking that first would tell a throttled user their address is invalid.
+  if (msg.includes('rate limit') || msg.includes('rate_limit') || error?.status === 429)
+    return 'rateLimited';
   if (msg.includes('password')) return 'weakPassword';
   if (msg.includes('email')) return 'badEmail';
-  if (msg.includes('rate limit') || error?.status === 429) return 'rateLimited';
   return 'generic';
 }
 
