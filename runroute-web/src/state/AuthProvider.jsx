@@ -1,11 +1,14 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js';
+import { getClientId, isGuest, setGuest, clearGuest, wasEverGuest } from '../lib/analytics.js';
 
 /**
- * Sign-in via Supabase — Google, or plain email + password — required to use
- * the app (no guest mode) so every route is tied to an account. When Supabase
- * isn't configured at all (local dev without env vars) auth is simply off and
- * the app runs unauthenticated.
+ * Sign-in via Supabase — Google, or plain email + password. Signing in is
+ * offered first but not required: "continue as guest" dismisses the gate and
+ * the app runs on local storage only (AppState already treats a null user that
+ * way, and merges local routes into the cloud on a later sign-in). When
+ * Supabase isn't configured at all (local dev without env vars) auth is simply
+ * off and everyone is a guest.
  *
  * Email sign-up goes through Supabase's "Confirm email" flow: signUp() creates
  * the user but no session, and the caller shows a "check your inbox" state
@@ -35,6 +38,12 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   // If auth isn't configured we're "ready" immediately (no login gate).
   const [ready, setReady] = useState(!isSupabaseConfigured);
+  // Chose to use the app without an account. Persisted, so a reload doesn't
+  // put the gate back in front of someone who already declined it.
+  const [guest, setGuestState] = useState(isGuest);
+  // Set when a guest asks for the login screen again (from Settings), which
+  // re-shows the gate without giving up guest mode if they close it.
+  const [loginRequested, setLoginRequested] = useState(false);
 
   useEffect(() => {
     if (!supabase) return undefined;
@@ -48,6 +57,7 @@ export function AuthProvider({ children }) {
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) setLoginRequested(false);
     });
 
     return () => {
@@ -55,6 +65,28 @@ export function AuthProvider({ children }) {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  // Stamp the device's anonymous id on the account the first time it signs in.
+  // This is the only link between "someone generated routes as a guest" and
+  // "that person now has an account" — without it the funnel can count both
+  // ends but never the conversion between them. Written once (the guard skips
+  // accounts that already carry it), and never for a user who was never a
+  // guest on this device, so it can't overwrite an earlier attribution.
+  useEffect(() => {
+    if (!supabase || !user) return;
+    if (user.user_metadata?.anon_id) return;
+    // Fire-and-forget inside try/catch rather than a bare `.catch`: measurement
+    // must never be able to break signing in, whatever the call does.
+    (async () => {
+      try {
+        await supabase.auth.updateUser({
+          data: { anon_id: getClientId(), was_guest: wasEverGuest() },
+        });
+      } catch (err) {
+        console.warn('attribution skipped:', err?.message || err);
+      }
+    })();
+  }, [user]);
 
   const signInWithGoogle = () =>
     supabase?.auth.signInWithOAuth({
@@ -87,12 +119,31 @@ export function AuthProvider({ children }) {
     return { ok: true };
   };
 
-  const signOut = () => supabase?.auth.signOut();
+  const signOut = () => {
+    // Leave guest mode too, so signing out lands on the login screen rather
+    // than silently continuing as an anonymous user.
+    clearGuest();
+    setGuestState(false);
+    setLoginRequested(false);
+    return supabase?.auth.signOut();
+  };
+
+  /** Dismiss the gate and use the app without an account. */
+  const continueAsGuest = () => {
+    setGuest();
+    setGuestState(true);
+    setLoginRequested(false);
+  };
+
+  /** Re-open the gate for a guest who wants an account after all. */
+  const openLogin = () => setLoginRequested(true);
+  const dismissLogin = () => setLoginRequested(false);
 
   // Full-screen login gate: shown whenever auth is configured, state has
-  // loaded, and nobody is signed in — including right after signOut(), since
-  // that clears `user` and this recomputes with no guest bypass to skip it.
-  const loginVisible = isSupabaseConfigured && ready && !user;
+  // loaded, and nobody is signed in — unless they chose guest mode, which
+  // only `openLogin()` (or signing out) brings the gate back from.
+  const loginVisible =
+    isSupabaseConfigured && ready && !user && (!guest || loginRequested);
 
   const value = {
     user,
@@ -103,6 +154,10 @@ export function AuthProvider({ children }) {
     signInWithEmail,
     signOut,
     loginVisible,
+    guest,
+    continueAsGuest,
+    openLogin,
+    dismissLogin,
   };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

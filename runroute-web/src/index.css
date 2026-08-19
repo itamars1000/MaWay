@@ -1462,6 +1462,25 @@ body {
   cursor: pointer;
 }
 
+/* Way past the gate: an account only adds cross-device sync, so this stays
+   visible but quieter than the sign-in actions above it. */
+.login-guest {
+  display: block;
+  margin: 18px auto 0;
+  padding: 8px 4px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.login-guest:hover {
+  color: var(--slate);
+}
+
 /* "Check your inbox" state (only if email confirmation is re-enabled). */
 .sent-badge {
   display: inline-flex;

@@ -10,6 +10,7 @@ const authApi = {
   signUp: vi.fn(),
   signInWithPassword: vi.fn(),
   signOut: vi.fn(),
+  updateUser: vi.fn(),
 };
 let configured = true;
 vi.mock('../../lib/supabase.js', () => ({
@@ -38,6 +39,7 @@ let emitAuthChange;
 beforeEach(() => {
   configured = true;
   authApi.getSession.mockResolvedValue({ data: { session: null } });
+  authApi.updateUser.mockResolvedValue({ data: {}, error: null });
   authApi.onAuthStateChange.mockImplementation((cb) => {
     emitAuthChange = cb;
     return { data: { subscription: { unsubscribe: vi.fn() } } };
@@ -296,6 +298,107 @@ describe('useAuth', () => {
       return null;
     }
     expect(() => render(<Bare />)).toThrow(/must be used within an AuthProvider/);
+    spy.mockRestore();
+  });
+});
+
+
+// --- guest mode -------------------------------------------------------------
+// Signing in is offered, not required: "continue as guest" dismisses the gate,
+// the choice survives a reload, and only signing out brings the gate back.
+
+describe('AuthProvider — guest mode', () => {
+  it('hides the gate once the user continues as a guest', async () => {
+    const { result } = await mountAuth();
+    expect(result.current.loginVisible).toBe(true);
+
+    act(() => result.current.continueAsGuest());
+
+    expect(result.current.guest).toBe(true);
+    expect(result.current.loginVisible).toBe(false);
+  });
+
+  it('remembers the choice across a reload', async () => {
+    const first = await mountAuth();
+    act(() => first.result.current.continueAsGuest());
+    first.unmount();
+
+    // Fresh mount = a reload; the stored flag must keep the gate down.
+    const { result } = await mountAuth();
+    expect(result.current.loginVisible).toBe(false);
+  });
+
+  it('reopens the gate on request, and closes it again without losing guest mode', async () => {
+    const { result } = await mountAuth();
+    act(() => result.current.continueAsGuest());
+
+    act(() => result.current.openLogin());
+    expect(result.current.loginVisible).toBe(true);
+
+    act(() => result.current.dismissLogin());
+    expect(result.current.loginVisible).toBe(false);
+    expect(result.current.guest).toBe(true);
+  });
+
+  it('signing out leaves guest mode so the gate comes back', async () => {
+    authApi.getSession.mockResolvedValue({ data: { session: { user: USER } } });
+    authApi.signOut.mockResolvedValue({ error: null });
+    const { result } = await mountAuth();
+
+    act(() => result.current.continueAsGuest()); // e.g. from an earlier session
+    act(() => {
+      result.current.signOut();
+      emitAuthChange('SIGNED_OUT', null);
+    });
+
+    expect(result.current.guest).toBe(false);
+    expect(result.current.loginVisible).toBe(true);
+  });
+
+  it('stamps the anonymous id on the account at first sign-in', async () => {
+    authApi.updateUser.mockResolvedValue({ data: {}, error: null });
+    const { result } = await mountAuth();
+    act(() => result.current.continueAsGuest());
+
+    act(() => emitAuthChange('SIGNED_IN', { user: USER }));
+
+    await waitFor(() => expect(authApi.updateUser).toHaveBeenCalledTimes(1));
+    const { data } = authApi.updateUser.mock.calls[0][0];
+    expect(data.was_guest).toBe(true);
+    expect(data.anon_id).toEqual(expect.any(String));
+    expect(data.anon_id.length).toBeGreaterThan(8);
+  });
+
+  it('does not re-stamp an account that already carries an id', async () => {
+    authApi.updateUser.mockResolvedValue({ data: {}, error: null });
+    authApi.getSession.mockResolvedValue({
+      data: { session: { user: { ...USER, user_metadata: { anon_id: 'existing' } } } },
+    });
+
+    await mountAuth();
+
+    expect(authApi.updateUser).not.toHaveBeenCalled();
+  });
+
+  it('records was_guest false for someone who never used guest mode', async () => {
+    authApi.updateUser.mockResolvedValue({ data: {}, error: null });
+    const { result } = await mountAuth();
+
+    act(() => emitAuthChange('SIGNED_IN', { user: USER }));
+
+    await waitFor(() => expect(authApi.updateUser).toHaveBeenCalled());
+    expect(authApi.updateUser.mock.calls[0][0].data.was_guest).toBe(false);
+  });
+
+  it('survives a failing attribution write', async () => {
+    authApi.updateUser.mockRejectedValue(new Error('network'));
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = await mountAuth();
+
+    act(() => emitAuthChange('SIGNED_IN', { user: USER }));
+
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    expect(result.current.user).toEqual(USER); // sign-in itself is unaffected
     spy.mockRestore();
   });
 });

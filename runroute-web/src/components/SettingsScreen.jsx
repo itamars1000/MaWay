@@ -13,7 +13,7 @@ const APP_VERSION = '0.1.0';
 export default function SettingsScreen() {
   const { open, closeSettings, mapStyle, setMapStyle, lang, setLang, openPrivacy, openTerms, openA11y } = useSettings();
   const { t } = useT();
-  const { user, authEnabled, signInWithGoogle, signOut } = useAuth();
+  const { user, authEnabled, signInWithGoogle, signOut, guest, openLogin } = useAuth();
   const { savedRoutes, clearAllSavedRoutes } = useAppState();
   if (!open) return null;
 
@@ -77,10 +77,24 @@ export default function SettingsScreen() {
               </div>
             ) : (
               <div className="settings-card">
-                <p className="settings-note">{t('settings.signInNote')}</p>
+                <p className="settings-note">
+                  {guest ? t('settings.guestNote') : t('settings.signInNote')}
+                </p>
                 <button type="button" className="settings-btn settings-btn--google" onClick={() => signInWithGoogle()}>
                   <GoogleIcon size={18} />
                   <span>{t('settings.signInGoogle')}</span>
+                </button>
+                {/* The only route back to the full login screen (and to email
+                    sign-in) once a guest has dismissed it. */}
+                <button
+                  type="button"
+                  className="settings-btn settings-btn--ghost"
+                  onClick={() => {
+                    closeSettings();
+                    openLogin();
+                  }}
+                >
+                  {t('settings.signInEmail')}
                 </button>
               </div>
             )}

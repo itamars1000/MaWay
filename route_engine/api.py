@@ -178,6 +178,13 @@ def loop(
     via_lng: Optional[float] = Query(None, ge=-180, le=180),
     end_lat: Optional[float] = Query(None, ge=-90, le=90),
     end_lng: Optional[float] = Query(None, ge=-180, le=180),
+    # Guest-funnel measurement, set by the web client when nobody is signed in.
+    # Neither value is used for routing — they are declared (rather than left as
+    # ignored extras) so they are validated, documented in /docs, and bounded:
+    # both land in the Cloud Run request log, which is where the count is read
+    # from, and an unbounded `cid` would let anyone write arbitrary log lines.
+    guest: Optional[int] = Query(None, ge=0, le=1),
+    cid: Optional[str] = Query(None, max_length=64, pattern=r"^[A-Za-z0-9-]+$"),
 ):
     """
     Returns a GeoJSON FeatureCollection with `n` loop candidates, sorted

@@ -7,9 +7,12 @@ import { translate } from '../../lib/i18n.js';
 // sign-in / sign-up return without touching Supabase.
 const auth = {
   loginVisible: true,
+  guest: false,
   signInWithGoogle: vi.fn(),
   signUpWithEmail: vi.fn(),
   signInWithEmail: vi.fn(),
+  continueAsGuest: vi.fn(),
+  dismissLogin: vi.fn(),
 };
 vi.mock('../../state/AuthProvider.jsx', () => ({ useAuth: () => auth }));
 
@@ -38,6 +41,7 @@ const signUpSubmit = () => screen.getAllByRole('button', { name: t('login.signUp
 
 beforeEach(() => {
   auth.loginVisible = true;
+  auth.guest = false;
   auth.signInWithEmail.mockResolvedValue({ ok: true });
   auth.signUpWithEmail.mockResolvedValue({ ok: true, needsConfirm: false });
 });
@@ -231,5 +235,42 @@ describe('LoginScreen — sign-up mode', () => {
       screen.getByText(t('login.checkMailSub', { email: 'runner@maway.app' })),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText(t('login.emailLabel'))).not.toBeInTheDocument();
+  });
+});
+
+
+describe('LoginScreen — guest mode', () => {
+  const guestBtn = () => screen.getByRole('button', { name: t('login.continueAsGuest') });
+
+  it('offers a way past the gate without an account', async () => {
+    const user = userEvent.setup();
+    renderLogin();
+
+    await user.click(guestBtn());
+
+    expect(auth.continueAsGuest).toHaveBeenCalledTimes(1);
+    expect(auth.dismissLogin).not.toHaveBeenCalled();
+  });
+
+  it('just closes again for someone already in guest mode', async () => {
+    // Reopened from Settings — choosing guest a second time would be a no-op,
+    // so the same control has to dismiss instead of re-entering guest mode.
+    const user = userEvent.setup();
+    auth.guest = true;
+    renderLogin();
+
+    await user.click(guestBtn());
+
+    expect(auth.dismissLogin).toHaveBeenCalledTimes(1);
+    expect(auth.continueAsGuest).not.toHaveBeenCalled();
+  });
+
+  it('stays available in sign-up mode too', async () => {
+    const user = userEvent.setup();
+    renderLogin();
+
+    await user.click(screen.getByRole('button', { name: t('login.signUp') }));
+
+    expect(guestBtn()).toBeInTheDocument();
   });
 });

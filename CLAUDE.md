@@ -132,8 +132,9 @@ for the file-by-file map.
 
 ## Secrets / config
 - `runroute-web/.env` — `VITE_ENGINE_URL` (engine base URL); optional
-  `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` (Google sign-in, required to use
-  the app once set — no guest mode); optional `VITE_SENTRY_DSN` (error
+  `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` (sign-in + cross-device route
+  sync; "continue without an account" keeps the app fully usable as a guest,
+  with routes stored locally); optional `VITE_SENTRY_DSN` (error
   tracking, degrades to console-only when unset). Copy from `.env.example`.
 - Google Maps API key for the Flutter app goes in the generated `android/`/`ios/`
   platform files (instructions in [README.flutter.md](README.flutter.md)).

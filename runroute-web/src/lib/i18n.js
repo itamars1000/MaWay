@@ -107,6 +107,7 @@ export const TRANSLATIONS = {
     'login.err.rateLimited': 'יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.',
     'login.err.cap': 'ההרשמה סגורה כרגע — אנחנו בגרסת בדיקה עם מספר משתמשים מוגבל.',
     'login.err.generic': 'משהו השתבש. נסו שוב.',
+    'login.continueAsGuest': 'המשך ללא חשבון',
 
     // Map overlay / FABs
     'map.locating': 'מאתר מיקום…',
@@ -130,6 +131,8 @@ export const TRANSLATIONS = {
     'settings.signOut': 'התנתק',
     'settings.signInNote': 'התחבר כדי לשמור ולסנכרן את המסלולים שלך.',
     'settings.signInGoogle': 'התחבר עם Google',
+    'settings.signInEmail': 'כניסה עם אימייל',
+    'settings.guestNote': 'אתם משתמשים ללא חשבון. המסלולים נשמרים במכשיר הזה בלבד.',
     'settings.map': 'מפה',
     'settings.mapType': 'סוג מפה',
     'settings.mapTypeHint': 'הסגנון שמוצג ברקע',
@@ -160,7 +163,7 @@ export const TRANSLATIONS = {
     'privacy.updated': 'עודכן לאחרונה: יוני 2026',
     'privacy.intro': 'אנו מכבדים את פרטיותכם. להלן אילו נתונים נאספים, לאיזו מטרה, ולמי הם מועברים.',
     'privacy.h.collect': 'אילו נתונים נאספים',
-    'privacy.collect': 'מיקום (נקודת התחלה ו-GPS) לצורך יצירת מסלולים; אם התחברתם — אימייל, שם ותמונת פרופיל מחשבון Google; ומסלולים ששמרתם.',
+    'privacy.collect': 'מיקום (נקודת התחלה ו-GPS) לצורך יצירת מסלולים; אם התחברתם — אימייל, שם ותמונת פרופיל מחשבון Google; ומסלולים ששמרתם. בשימוש ללא חשבון נוצר מזהה אקראי שנשמר במכשיר, ללא פרטים אישיים, כדי לספור כמה אנשים משתמשים באפליקציה. מחיקת נתוני האתר מהדפדפן מוחקת אותו.',
     'privacy.h.use': 'למה הנתונים משמשים',
     'privacy.use': 'ליצירת מסלולי ריצה סביב המיקום שלכם, לשמירת מסלולים ולשיפור איכות המסלולים.',
     'privacy.h.third': 'שירותי צד שלישי',
@@ -360,6 +363,7 @@ export const TRANSLATIONS = {
     'login.err.rateLimited': 'Too many attempts. Try again in a few minutes.',
     'login.err.cap': 'Sign-ups are closed right now — we are in a limited testing phase.',
     'login.err.generic': 'Something went wrong. Please try again.',
+    'login.continueAsGuest': 'Continue without an account',
 
     // Map overlay / FABs
     'map.locating': 'Finding location…',
@@ -383,6 +387,8 @@ export const TRANSLATIONS = {
     'settings.signOut': 'Sign out',
     'settings.signInNote': 'Sign in to save and sync your routes.',
     'settings.signInGoogle': 'Sign in with Google',
+    'settings.signInEmail': 'Sign in with email',
+    'settings.guestNote': 'You are using the app without an account. Routes are saved on this device only.',
     'settings.map': 'Map',
     'settings.mapType': 'Map type',
     'settings.mapTypeHint': 'The style shown in the background',
@@ -413,7 +419,7 @@ export const TRANSLATIONS = {
     'privacy.updated': 'Last updated: June 2026',
     'privacy.intro': 'We respect your privacy. Here is what data is collected, why, and who it is shared with.',
     'privacy.h.collect': 'What we collect',
-    'privacy.collect': 'Location (start point and GPS) to generate routes; if you sign in — email, name and profile picture from your Google account; and routes you save.',
+    'privacy.collect': 'Location (start point and GPS) to generate routes; if you sign in — email, name and profile picture from your Google account; and the routes you save. When using the app without an account a random identifier is stored on your device, with no personal details, so we can count how many people use the app. Clearing site data removes it.',
     'privacy.h.use': 'How we use it',
     'privacy.use': 'To generate running routes around your location, to save routes, and to improve route quality.',
     'privacy.h.third': 'Third-party services',

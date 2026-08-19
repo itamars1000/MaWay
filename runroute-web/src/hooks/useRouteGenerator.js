@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 import { useAppState, ROUTE_TYPES } from '../state/AppState.jsx';
 import { useT } from '../state/SettingsProvider.jsx';
 import { generateFromEngine, EngineError } from '../lib/engine.js';
+import { getClientId } from '../lib/analytics.js';
 
 /**
  * Asks the Python route engine for a low-turn loop and stores it in state.
@@ -14,6 +15,7 @@ export function useRouteGenerator() {
     routeType,
     viaPoint,
     endPoint,
+    user, // null for a guest — only guests are tagged for the funnel
     setRouteCandidates,
     setRouteIndex,
     setRouteStatus,
@@ -36,6 +38,8 @@ export function useRouteGenerator() {
         distanceKm: selectedDistance,
         via: oneWay ? null : viaPoint,
         end: oneWay ? endPoint : null,
+        guest: !user,
+        clientId: user ? null : getClientId(),
         signal: controller.signal,
         onBuilding: () => {
           if (abortRef.current === controller) setRouteStatus('building');
@@ -56,6 +60,7 @@ export function useRouteGenerator() {
     routeType,
     viaPoint,
     endPoint,
+    user,
     setRouteCandidates,
     setRouteIndex,
     setRouteStatus,

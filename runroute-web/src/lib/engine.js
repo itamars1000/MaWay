@@ -91,7 +91,16 @@ function featureToCandidate(feature) {
  * best-first). Returns a non-empty array so the UI can cycle with "מסלול הבא",
  * or throws EngineError('no-quality') when the area has none.
  */
-export async function generateFromEngine({ start, distanceKm, via, end, signal, onBuilding }) {
+export async function generateFromEngine({
+  start,
+  distanceKm,
+  via,
+  end,
+  signal,
+  onBuilding,
+  guest = false,
+  clientId = null,
+}) {
   if (!start) throw new EngineError('no-start', 'No start position');
   if (end && !(end.lat && end.lng)) throw new EngineError('no-end', 'No end position');
 
@@ -107,6 +116,14 @@ export async function generateFromEngine({ start, distanceKm, via, end, signal, 
   } else if (via) {
     params.set('via_lat', String(via.lat));
     params.set('via_lng', String(via.lng));
+  }
+  // Guest-funnel measurement: how many routes are generated without an account,
+  // by how many distinct devices. Sent only for guests — a signed-in user is
+  // already identified by their account, so tagging them adds nothing and the
+  // engine has no business receiving a second id for them.
+  if (guest) {
+    params.set('guest', '1');
+    if (clientId) params.set('cid', clientId);
   }
   const url = `${BASE}/loop?${params}`;
 

@@ -7,10 +7,20 @@ import { GoogleIcon, ChevronIcon } from './icons.jsx';
  * Full-screen onboarding / sign-in shown on launch. Sign-in and sign-up are the
  * same screen: the heading, fields and footer link swap with `mode`, and
  * sign-up adds a back arrow plus a confirm-password field. Signing in is
- * required — there is no guest mode.
+ * offered but not required — "continue as guest" dismisses the gate and the app
+ * runs on local storage. A guest who reopens this from Settings can close it
+ * again (`guest` is already true), so it doesn't become a trap.
  */
 export default function LoginScreen() {
-  const { loginVisible, signInWithGoogle, signUpWithEmail, signInWithEmail } = useAuth();
+  const {
+    loginVisible,
+    signInWithGoogle,
+    signUpWithEmail,
+    signInWithEmail,
+    guest,
+    continueAsGuest,
+    dismissLogin,
+  } = useAuth();
   const { t } = useT();
   const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
   const [email, setEmail] = useState('');
@@ -165,6 +175,16 @@ export default function LoginScreen() {
             {isSignup ? t('login.signIn') : t('login.signUp')}
           </button>
         </p>
+
+        {/* An account only adds cross-device sync — routes save locally either
+            way — so the way past this screen stays plainly visible. */}
+        <button
+          type="button"
+          className="login-guest"
+          onClick={guest ? dismissLogin : continueAsGuest}
+        >
+          {t('login.continueAsGuest')}
+        </button>
       </div>
     </div>
   );
